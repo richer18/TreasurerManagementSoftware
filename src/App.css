@@ -1,0 +1,89 @@
+/* General App styles */
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #ffffff; /* Match the calendar's background */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: calc(10px + 2vmin);
+  color: #333; /* Darker text color for better visibility */
+}
+
+/* Flexbox utilities */
+.h-screen {
+  height: 100vh; /* Full viewport height */
+}
+
+.flex {
+  display: flex; /* Flexbox for layout */
+}
+
+.flex-col {
+  flex-direction: column; /* Column direction for parent */
+}
+
+.flex-1 {
+  flex: 1; /* Allows child to grow and fill available space */
+}
+
+/* Calendar Layout Styles */
+.calendar-container {
+  display: flex; /* Flexbox for main layout */
+  flex-direction: column; /* Stack elements vertically */
+  height: 100%; /* Full height to fill parent */
+  width: 100%; /* Full width */
+}
+
+/* Calendar Header */
+.calendar-header {
+  flex: 0 0 auto; /* Fixed height for header */
+  width: 100%; /* Full width */
+  display: flex; /* Flexbox for header elements */
+  justify-content: space-between; /* Space between elements */
+  padding: 10px; /* Padding for aesthetics */
+  background-color: #ffffff; /* Match the calendar's background */
+}
+
+/* Sidebar Styles */
+.sidebar {
+  width: 250px; /* Fixed width for sidebar */
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
+  background-color: #f7f7f7; /* Softer background color */
+  border-right: 1px solid #e0e0e0; /* Subtle border */
+}
+
+/* Month Styles */
+.month {
+  flex: 1; /* Takes remaining space */
+  overflow: auto; /* Scroll if content overflows */
+  background-color: white; /* Background color for month */
+}
+
+/* Individual Day Styles */
+.day {
+  padding: 10px; /* Add padding to days */
+  border: 1px solid #e0e0e0; /* Add borders for clarity */
+  border-radius: 5px; /* Rounded corners for cells */
+  margin: 5px; /* Margin between cells */
+  transition: background-color 0.3s; /* Smooth transition for hover effects */
+}
+
+.day:hover {
+  background-color: #e7f3ff; /* Change background on hover */
+}
+
+/* Media Queries for Responsiveness */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 200px; /* Smaller sidebar on smaller screens */
+  }
+  
+  .calendar-header {
+    font-size: 16px; /* Adjust font size */
+  }
+}

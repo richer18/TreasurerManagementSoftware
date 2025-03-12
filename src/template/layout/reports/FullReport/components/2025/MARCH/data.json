@@ -1,0 +1,67 @@
+[
+  {
+    "date": "March 3, 2025",
+    "ctc": 2543.2,
+    "rpt": 0,
+    "GF": 0,
+    "TF": 0,
+    "gfAndTf": 0,
+    "dueFrom": 0,
+    "rcdTotal": 2543.2,
+    "comment": null,
+    "under": null,
+    "over": null
+  },
+  {
+    "date": "March 4, 2025",
+    "ctc": 1711.82,
+    "rpt": 0,
+    "GF": 0,
+    "TF": 0,
+    "gfAndTf": 0,
+    "dueFrom": 0,
+    "rcdTotal": 1711.82,
+    "comment": null,
+    "under": null,
+    "over": null
+  },
+  {
+    "date": "March 5, 2025",
+    "ctc": 2030.99,
+    "rpt": 0,
+    "GF": 0,
+    "TF": 0,
+    "gfAndTf": 0,
+    "dueFrom": 0,
+    "rcdTotal": 2030.99,
+    "comment": null,
+    "under": null,
+    "over": null
+  },
+  {
+    "date": "March 6, 2025",
+    "ctc": 1521.7,
+    "rpt": 0,
+    "GF": 0,
+    "TF": 0,
+    "gfAndTf": 0,
+    "dueFrom": 0,
+    "rcdTotal": 1521.7,
+    "comment": null,
+    "under": null,
+    "over": null
+  },
+  {
+    "date": "March 7, 2025",
+    "ctc": 563.92,
+    "rpt": 0,
+    "GF": 0,
+    "TF": 0,
+    "gfAndTf": 0,
+    "dueFrom": 0,
+    "rcdTotal": 563.92,
+    "comment": null,
+    "under": null,
+    "over": null
+  }
+]
