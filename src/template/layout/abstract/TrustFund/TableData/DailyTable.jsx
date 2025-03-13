@@ -67,6 +67,7 @@ const years = Array.from({ length: 100 }, (_, i) => ({
 }));
 
 function DailyTable({ onBack }) {
+  
   const [data, setData] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(''); // Set default value
   const [selectedYear, setSelectedYear] = useState(''); // Set default value
@@ -83,7 +84,7 @@ useEffect(() => {
       if (selectedYear) queryParams.append('year', selectedYear.value);
 
       const response = await fetch(
-        `http://192.168.101.108:3001/api/allDataTrustFund?${queryParams.toString()}`
+        `http://localhost:3001/api/allDataTrustFund?${queryParams.toString()}`
       );
       const result = await response.json();
       console.log('Fetched Data:', result);
@@ -118,7 +119,7 @@ useEffect(() => {
   const handleViewClick = async (date) => {
   try {
     const response = await axios.get(
-      `http://192.168.101.108:3001/api/viewalldataTrustFundTableView?date=${dayjs(date).format('YYYY-MM-DD')}`
+      `http://localhost:3001/api/viewalldataTrustFundTableView?date=${dayjs(date).format('YYYY-MM-DD')}`
     );
 
     // Transform numeric fields to strings

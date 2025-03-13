@@ -162,7 +162,7 @@ function TrustFund() {
       try {
         const fetchTotal = async (endpoint) => {
           const response = await fetch(
-            `http://192.168.101.108:3001/api/${endpoint}`
+            `http://localhost:3001/api/${endpoint}`
           );
           if (!response.ok)
             throw new Error(`Network response was not ok ${endpoint}`);
@@ -224,7 +224,7 @@ function TrustFund() {
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          "http://192.168.101.108:3001/api/table-trust-fund-all"
+          "http://localhost:3001/api/table-trust-fund-all"
         );
         setData(response.data);
         setFilteredData(response.data); // Initialize with the full dataset
@@ -295,7 +295,7 @@ function TrustFund() {
     const fetchAllData = async () => {
       try {
         const response = await fetch(
-          "http://192.168.101.108:3001/api/trust-fund-total"
+          "http://localhost:3001/api/trust-fund-total"
         );
         if (!response.ok) throw new Error("Network response was not ok total");
         const data = await response.json();

@@ -17,23 +17,21 @@ app.use(express.json()); // Support JSON payloads
 
 
 // Create connection to MySQL database
-const dbConfig = {
-  host: '192.168.101.108',
-  user: 'treasurer_root2',
-  password: '$p4ssworD!',
-  database: 'treasurer_management_app',
-  port: 3307
-};
-
 // const dbConfig = {
-//   host: 'localhost',
-//   user: 'root',
-//   password: '',
+//   host: '192.168.101.108',
+//   user: 'treasurer_root2',
+//   password: '$p4ssworD!',
 //   database: 'treasurer_management_app',
 //   port: 3307
 // };
 
-
+const dbConfig = {
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'treasurer_management_app',
+  port: 3307
+};
 
 const dbConfigs = {
   host: 'localhost',
@@ -1631,6 +1629,30 @@ app.get('/api/generalFundDataReport', (req, res) => {
   const query = `
     SELECT * FROM general_fund_data
     WHERE MONTH(date) = ? AND YEAR(date) = ?
+  `;
+
+  db.query(query, [month, year], (err, results) => {
+    if (err) {
+      console.error('Error fetching data:', err);
+      res.status(500).send({ error: 'Database query failed' });
+    } else {
+      console.log('Filtered Results:', results); // Debug log
+      res.json(results);
+    }
+  });
+});
+
+app.get('/api/trustFundDataReport', (req, res) => {
+  const { month, year } = req.query;
+
+  // Validate month and year
+  if (!month || !year) {
+    return res.status(400).send({ error: 'Month and year are required' });
+  }
+
+  const query = `
+    SELECT * FROM trust_fund_data
+    WHERE MONTH(DATE) = ? AND YEAR(DATE) = ?
   `;
 
   db.query(query, [month, year], (err, results) => {
