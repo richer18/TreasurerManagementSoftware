@@ -3212,19 +3212,19 @@ app.post('/api/cedulaedit', async (req, res) => {
   `;
 
   const params = [
-    DATEISSUED, 
-    CTCNO, 
-    OWNERNAME, 
-    BASICTAXDUE, 
-    BUSTAXAMOUNT, 
-    BUSTAXDUE, 
-    SALTAXAMOUNT, 
-    SALTAXDUE, 
-    RPTAXAMOUNT, 
-    RPTAXDUE, 
-    INTEREST, 
-    TOTALAMOUNTPAID, 
-    USERID, 
+    DATEISSUED,
+    CTCNO,
+    OWNERNAME,
+    BASICTAXDUE,
+    BUSTAXAMOUNT,
+    BUSTAXDUE,
+    SALTAXAMOUNT,
+    SALTAXDUE,
+    RPTAXAMOUNT,
+    RPTAXDUE,
+    INTEREST,
+    TOTALAMOUNTPAID,
+    USERID,
     LOCAL_TIN
   ];
 

@@ -1,3 +1,4 @@
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   Autocomplete,
   Box,
@@ -17,7 +18,6 @@ import Grid from "@mui/material/Grid"; // Updated import for Grid
 import { styled } from "@mui/system";
 import axios from "axios";
 import React, { useCallback, useEffect, useState } from "react";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 // Custom styles
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -64,9 +64,15 @@ const days = Array.from({ length: 31 }, (_, i) => ({
 const years = [
   { label: "2023", value: "2023" },
   { label: "2024", value: "2024" },
+  { label: "2025", value: "2025" },
+  { label: "2026", value: "2026" },
+  { label: "2027", value: "2027" },
+  { label: "2028", value: "2028" },
+  { label: "2029", value: "2029" },
+  { label: "2030", value: "2030" },
 ];
 
-function Summary({ setMonth, setDay, setYear, onBack }) {
+function Summary({ setMonth, setYear, onBack }) {
   // State variables
   const [data1, setData1] = useState({ land: [] });
   const [data2, setData2] = useState({ bldg: [] });
@@ -90,9 +96,8 @@ function Summary({ setMonth, setDay, setYear, onBack }) {
   // Update parent component's state
   useEffect(() => {
     setMonth(month);
-    setDay(day);
     setYear(year);
-  }, [month, day, year, setMonth, setDay, setYear]);
+  }, [month, day, year, setMonth, setYear]);
 
   // Fetch data
   const fetchData = useCallback(async () => {

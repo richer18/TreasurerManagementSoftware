@@ -1,11 +1,13 @@
-import { keyframes } from '@emotion/react';
-import SearchIcon from '@mui/icons-material/Search';
+import { keyframes } from "@emotion/react";
+import SearchIcon from "@mui/icons-material/Search";
 import {
   Autocomplete,
   Box,
-  Button, Card,
+  Button,
+  Card,
   InputAdornment,
-  Menu, MenuItem,
+  Menu,
+  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -17,24 +19,27 @@ import {
   TextField,
   Tooltip,
   Typography,
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+} from "@mui/material";
+import { styled } from "@mui/material/styles";
 
-import axios from 'axios';
-import { saveAs } from 'file-saver';
-import React, { useEffect, useState } from 'react';
-import * as XLSX from 'xlsx';
+import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 
-import { BiSolidReport } from 'react-icons/bi';
-import { IoMdAdd, IoMdDownload } from 'react-icons/io';
-import { IoToday } from 'react-icons/io5';
+import axios from "axios";
+import { saveAs } from "file-saver";
+import React, { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
 
-import Cedulas from '../../../../components/MD-Components/FillupForm/Cedula';
-import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialog';
-import DailyTable from './TableData/DailyTable';
-import ReportTable from './TableData/ReportTable';
+import { BiSolidReport } from "react-icons/bi";
+import { IoMdAdd, IoMdDownload } from "react-icons/io";
+import { IoToday } from "react-icons/io5";
 
-import CedulaFundDialog from '../../../../components/MD-Components/Popup/CedulaFundDialog';
+import Cedulas from "../../../../components/MD-Components/FillupForm/Cedula";
+import PopupDialog from "../../../../components/MD-Components/Popup/PopupDialog";
+import DailyTable from "./TableData/DailyTable";
+import ReportTable from "./TableData/ReportTable";
+
+import CedulaFundDialog from "../../../../components/MD-Components/Popup/CedulaFundDialog";
 
 // ------------------------
 //  Styled components
@@ -42,8 +47,8 @@ import CedulaFundDialog from '../../../../components/MD-Components/Popup/CedulaF
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.common.white,
-  fontWeight: 'bold',
-  textAlign: 'center',
+  fontWeight: "bold",
+  textAlign: "center",
 }));
 
 const bounce = keyframes`
@@ -68,28 +73,28 @@ const AnimatedButton = styled(Button)`
 //  Month / Year Options
 // ------------------------
 const months = [
-  { label: 'January', value: '1' },
-  { label: 'February', value: '2' },
-  { label: 'March', value: '3' },
-  { label: 'April', value: '4' },
-  { label: 'May', value: '5' },
-  { label: 'June', value: '6' },
-  { label: 'July', value: '7' },
-  { label: 'August', value: '8' },
-  { label: 'September', value: '9' },
-  { label: 'October', value: '10' },
-  { label: 'November', value: '11' },
-  { label: 'December', value: '12' },
+  { label: "January", value: "1" },
+  { label: "February", value: "2" },
+  { label: "March", value: "3" },
+  { label: "April", value: "4" },
+  { label: "May", value: "5" },
+  { label: "June", value: "6" },
+  { label: "July", value: "7" },
+  { label: "August", value: "8" },
+  { label: "September", value: "9" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" },
 ];
 
 const years = [
-  { label: '2023', value: '2023' },
-  { label: '2024', value: '2024' },
-  { label: '2025', value: '2025' },
-  { label: '2026', value: '2026' },
-  { label: '2027', value: '2027' },
-  { label: '2028', value: '2028' },
-  { label: '2029', value: '2029' },
+  { label: "2023", value: "2023" },
+  { label: "2024", value: "2024" },
+  { label: "2025", value: "2025" },
+  { label: "2026", value: "2026" },
+  { label: "2027", value: "2027" },
+  { label: "2028", value: "2028" },
+  { label: "2029", value: "2029" },
 ];
 
 // ------------------------
@@ -97,14 +102,14 @@ const years = [
 // ------------------------
 const formatDate = (dateString) => {
   const date = new Date(dateString);
-  const options = { month: 'short', day: 'numeric', year: 'numeric' };
-  return date.toLocaleDateString('en-US', options);
+  const options = { month: "short", day: "numeric", year: "numeric" };
+  return date.toLocaleDateString("en-US", options);
 };
 
 // ------------------------
 //   Main Component
 // ------------------------
-function Cedula() {
+function Cedula({ ...props }) {
   // 1. Full data from server
   const [data, setData] = useState([]);
   // 2. Filtered data for the table
@@ -112,9 +117,9 @@ function Cedula() {
 
   // 3. Search states:
   //    a) what user is typing
-  const [pendingSearchQuery, setPendingSearchQuery] = useState('');
+  const [pendingSearchQuery, setPendingSearchQuery] = useState("");
   //    b) what we actually filter on
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   // 4. Month/year filters
   const [month, setMonth] = useState(null);
@@ -134,12 +139,17 @@ function Cedula() {
   const [showDailyTable, setShowDailyTable] = useState(false);
   const [dailyTableData, setDailyTableData] = useState([]);
 
-
   // Menu & selectedRow states
-    const [anchorEl, setAnchorEl] = useState(null);
-    const [selectedRow, setSelectedRow] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedRow, setSelectedRow] = useState(null);
 
-    const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(true);
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
 
   // ------------------------
   //  1) Fetch data once
@@ -147,15 +157,33 @@ function Cedula() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://192.168.101.108:3001/api/cedula');
+        const response = await axios.get(
+          "http://192.168.101.108:3001/api/cedula"
+        );
         setData(response.data);
         setFilteredData(response.data); // Initialize with the full dataset
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       }
     };
     fetchData();
   }, []);
+
+  // ------------------------
+  //  2) Filter by Month & Year
+  // ------------------------
+  const getFilteredDataByMonthYear = () => {
+    if (!month || !year) return filteredData;
+
+    return filteredData.filter((row) => {
+      if (!row.DATE) return false;
+      const rowDate = new Date(row.DATE);
+      return (
+        rowDate.getMonth() + 1 === Number(month) &&
+        rowDate.getFullYear() === Number(year)
+      );
+    });
+  };
 
   // ------------------------
   //  2) Filter data on searchQuery & month/year
@@ -172,8 +200,8 @@ function Cedula() {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       newFiltered = newFiltered.filter((row) => {
-        const rowName = (row?.NAME ?? '').toLowerCase();
-        const rowCtcNo = (row?.['CTC NO'] ?? '').toString().toLowerCase();
+        const rowName = (row?.NAME ?? "").toLowerCase();
+        const rowCtcNo = (row?.["CTC NO"] ?? "").toString().toLowerCase();
         // .includes() = partial substring match
         return rowName.includes(q) || rowCtcNo.includes(q);
       });
@@ -221,7 +249,7 @@ function Cedula() {
 
   const handleEditClick = () => {
     if (!selectedRow) return;
-  
+
     setDialogContent(
       <Cedulas
         data={{
@@ -245,25 +273,25 @@ function Cedula() {
     setAnchorEl(null);
   };
 
-   // “View” from the menu
-    const handleViewClick = () => {
-      if (!selectedRow) return;
-      setDialogContent(
-        <CedulaFundDialog
-          open={true}
-          onClose={handleCloseDialog}
-          data={selectedRow}
-        />
-      );
-      setIsDialogOpen(true);
-      handleMenuClose();
-    };
+  // “View” from the menu
+  const handleViewClick = () => {
+    if (!selectedRow) return;
+    setDialogContent(
+      <CedulaFundDialog
+        open={true}
+        onClose={handleCloseDialog}
+        data={selectedRow}
+      />
+    );
+    setIsDialogOpen(true);
+    handleMenuClose();
+  };
 
-    // Close the “View” dialog
+  // Close the “View” dialog
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
   };
-  
+
   // ------------------------
   //  5) Subtable toggles
   // ------------------------
@@ -271,7 +299,7 @@ function Cedula() {
     setShowReportTable(true);
     setShowMainTable(false);
     setShowDailyTable(false);
-    setShowFilters(false); 
+    setShowFilters(false);
   };
   const toggleDailyTable = () => {
     setShowDailyTable(true);
@@ -279,7 +307,7 @@ function Cedula() {
     setShowReportTable(false);
     setShowFilters(false); // Hide filters
   };
-  
+
   const handleBack = () => {
     setShowReportTable(false);
     setShowDailyTable(false);
@@ -290,36 +318,76 @@ function Cedula() {
   // ------------------------
   //  6) Summations
   // ------------------------
-  const totalBasic = '₱' + filteredData
-    .reduce((acc, row) => acc + parseFloat(row.BASIC ?? 0), 0)
-    .toFixed(2);
+  const totalBasic =
+    "₱" +
+    filteredData
+      .reduce((acc, row) => acc + parseFloat(row.BASIC ?? 0), 0)
+      .toFixed(2);
 
-  const totalTaxDue = '₱' + filteredData
-    .reduce((acc, row) => acc + parseFloat(row.TAX_DUE ?? 0), 0)
-    .toFixed(2);
+  const totalTaxDue =
+    "₱" +
+    filteredData
+      .reduce((acc, row) => acc + parseFloat(row.TAX_DUE ?? 0), 0)
+      .toFixed(2);
 
-  const totalInterest = '₱' + filteredData
-    .reduce((acc, row) => acc + parseFloat(row.INTEREST ?? 0), 0)
-    .toFixed(2);
+  const totalInterest =
+    "₱" +
+    filteredData
+      .reduce((acc, row) => acc + parseFloat(row.INTEREST ?? 0), 0)
+      .toFixed(2);
 
-  const totalAmount = '₱' + filteredData
-    .reduce((acc, row) => acc + parseFloat(row.TOTALAMOUNTPAID ?? 0), 0)
-    .toFixed(2);
+  const totalAmount =
+    "₱" +
+    filteredData
+      .reduce((acc, row) => acc + parseFloat(row.TOTALAMOUNTPAID ?? 0), 0)
+      .toFixed(2);
 
   // ------------------------
   //  7) Download logic
   // ------------------------
   const handleDownload = () => {
-    if (dailyTableData.length === 0) {
-      alert('No data available to download');
+    if (!month || !year) {
+      setSnackbar({
+        open: true,
+        message: "Please select both month and year before downloading.",
+        severity: "warning",
+      });
       return;
     }
-    const worksheet = XLSX.utils.json_to_sheet(dailyTableData);
+
+    const filteredExportData = getFilteredDataByMonthYear();
+
+    if (filteredExportData.length === 0) {
+      setSnackbar({
+        open: true,
+        message:
+          "No data available to download for the selected month and year.",
+        severity: "info",
+      });
+      return;
+    }
+
+    // Convert date to Philippine Time and human-readable format
+    const formattedData = filteredExportData.map((item) => {
+      return {
+        ...item,
+        DATE: new Date(item.DATE).toLocaleString("en-US", {
+          timeZone: "Asia/Manila", // Set timezone to PHT
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }),
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Daily Table Data');
-    const file = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([file], { type: 'application/octet-stream' });
-    saveAs(blob, 'DailyTableData.xlsx');
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Filtered Data");
+
+    const file = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([file], { type: "application/octet-stream" });
+    const fileName = `Cedula_Report_${months.find((m) => m.value === month)?.label}_${year}.xlsx`;
+    saveAs(blob, fileName);
   };
 
   // ------------------------
@@ -335,204 +403,235 @@ function Cedula() {
   //  UI Rendering
   // ------------------------
   return (
-    <Box sx={{ flexGrow: 1, padding: 3, backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-<Box sx={{ mb: 4 }}>
-  {/* Toolbar Section */}
-  <Box display="flex" flexDirection="column" gap={3}>
-    {/* Search & Filters Row */}
-    <Box display="flex" alignItems="center" gap={3} sx={{ py: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}>
-      {showFilters && (
-        <Box display="flex" alignItems="center" gap={2} flexGrow={1}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            label="Search Records"
-            placeholder="Name or CTC Number"
-            value={pendingSearchQuery}
-            onChange={(e) => setPendingSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-              sx: { borderRadius: '8px' }
-            }}
-          />
-          
-          <Box display="flex" gap={2}>
-            <Autocomplete
-              disablePortal
-              options={months}
-              sx={{ width: 180 }}
-              renderInput={(params) => (
-                <TextField {...params} label="Select Month" variant="outlined" />
-              )}
-              onChange={(e, v) => setMonth(v?.value)}
-            />
-            
-            <Autocomplete
-              disablePortal
-              options={years}
-              sx={{ width: 150 }}
-              renderInput={(params) => (
-                <TextField {...params} label="Select Year" variant="outlined" />
-              )}
-              onChange={(e, v) => setYear(v?.value)}
-            />
-            
-            <Button
-              variant="contained"
-              color="primary"
-              sx={{ 
-                px: 4,
-                height: '56px',
-                borderRadius: '8px',
-                boxShadow: 'none',
-                '&:hover': { boxShadow: '0px 3px 6px rgba(0, 0, 0, 0.1)' }
-              }}
-              onClick={handleSearchClick}
-            >
-              Apply Filters
-            </Button>
-          </Box>
-        </Box>
-      )}
-    </Box>
-
-    {/* Action Buttons Row */}
-    <Box display="flex" alignItems="center" gap={2} sx={{ py: 1 }}>
-      <Box display="flex" gap={2} flexGrow={1}>
-        <Tooltip title="Add New Entry">
-          <Button
-            variant="contained"
-            startIcon={<IoMdAdd size={20} />}
-            sx={{
-              px: 4,
-              backgroundColor: '#1976d2',
-              '&:hover': { backgroundColor: '#1565c0' },
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={() => handleClickOpen(<Cedulas />)}
-          >
-            New Entry
-          </Button>
-        </Tooltip>
-
-        <Tooltip title="Generate Daily Report">
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<IoToday size={18} />}
-            sx={{
-              px: 4,
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={toggleDailyTable}
-          >
-            Daily Summary
-          </Button>
-        </Tooltip>
-      </Box>
-
-      <Box display="flex" gap={2}>
-      <Tooltip title="Financial Report">
-        <AnimatedButton
-          variant="contained"
-          color="error"
-          startIcon={<BiSolidReport size={18} />}
-          sx={{
-            px: 4,
-            textTransform: 'none',
-            fontSize: 16
-          }}
-          onClick={toggleReportTable}
-        >
-          Financial Report
-        </AnimatedButton>
-        </Tooltip>
-
-        <Tooltip title="Export Data">
-          <Button
-            variant="contained"
-            color="info"
-            startIcon={<IoMdDownload size={18} />}
-            sx={{
-              px: 4,
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={handleDownload}
-          >
-            Export
-          </Button>
-        </Tooltip>
-      </Box>
-    </Box>
-  </Box>
-
-  
-
-  {/* Summary Cards */}
-<Box display="flex" justifyContent="space-between" gap={3} sx={{ mt: 4 }}>
-  {[
-    { value: totalAmount, text: 'Total Revenue' },
-    { value: totalBasic, text: 'Basic Income' },
-    { value: totalTaxDue, text: 'Tax Liability' },
-    { value: totalInterest, text: 'Accrued Interest' }
-  ].map(({ value, text }) => (
-    <Card
-      key={text} // ✅ Use `text` as a unique key
+    <Box
       sx={{
-        flex: 1,
-        p: 2.5,
-        borderRadius: '12px',
-        background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
-        color: 'white',
-        boxShadow: '0 8px 24px rgba(63,81,181,0.15)',
-        transition: 'transform 0.3s ease',
-        cursor: 'pointer',
-        '&:hover': { transform: 'translateY(-4px)' }
+        flexGrow: 1,
+        padding: 3,
+        backgroundColor: "#f5f5f5",
+        minHeight: "100vh",
       }}
     >
-      <Typography variant="subtitle2" sx={{ opacity: 0.9, mb: 0.5 }}>
-        {text}
-      </Typography>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>
-        {typeof value === 'number'
-          ? `₱ ${value.toLocaleString('en-PH', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2
-            })}`
-          : value}
-      </Typography>
-    </Card>
-  ))}
-</Box>
+      <Box sx={{ mb: 4 }}>
+        {/* Toolbar Section */}
+        <Box display="flex" flexDirection="column" gap={3}>
+          {/* Search & Filters Row */}
+          <Box
+            display="flex"
+            alignItems="center"
+            gap={3}
+            sx={{ py: 2, borderBottom: "1px solid rgba(0, 0, 0, 0.12)" }}
+          >
+            {showFilters && (
+              <Box display="flex" alignItems="center" gap={2} flexGrow={1}>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  label="Search Records"
+                  placeholder="Name or CTC Number"
+                  value={pendingSearchQuery}
+                  onChange={(e) => setPendingSearchQuery(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon color="action" />
+                        </InputAdornment>
+                      ),
+                    },
+                    root: {
+                      sx: { borderRadius: "8px" },
+                    },
+                  }}
+                />
 
-</Box>
+                <Box display="flex" gap={2}>
+                  <Autocomplete
+                    disablePortal
+                    options={months}
+                    sx={{ width: 180 }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Select Month"
+                        variant="outlined"
+                      />
+                    )}
+                    onChange={(e, v) => setMonth(v?.value)}
+                  />
 
+                  <Autocomplete
+                    disablePortal
+                    options={years}
+                    sx={{ width: 150 }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Select Year"
+                        variant="outlined"
+                      />
+                    )}
+                    onChange={(e, v) => setYear(v?.value)}
+                  />
+
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    sx={{
+                      px: 4,
+                      height: "56px",
+                      borderRadius: "8px",
+                      boxShadow: "none",
+                      "&:hover": {
+                        boxShadow: "0px 3px 6px rgba(0, 0, 0, 0.1)",
+                      },
+                    }}
+                    onClick={handleSearchClick}
+                  >
+                    Apply Filters
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </Box>
+
+          {/* Action Buttons Row */}
+          <Box display="flex" alignItems="center" gap={2} sx={{ py: 1 }}>
+            <Box display="flex" gap={2} flexGrow={1}>
+              <Tooltip title="Add New Entry">
+                <Button
+                  variant="contained"
+                  startIcon={<IoMdAdd size={20} />}
+                  sx={{
+                    px: 4,
+                    backgroundColor: "#1976d2",
+                    "&:hover": { backgroundColor: "#1565c0" },
+                    textTransform: "none",
+                    fontSize: 16,
+                  }}
+                  onClick={() => handleClickOpen(<Cedulas />)}
+                >
+                  New Entry
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Generate Daily Report">
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<IoToday size={18} />}
+                  sx={{
+                    px: 4,
+                    textTransform: "none",
+                    fontSize: 16,
+                  }}
+                  onClick={toggleDailyTable}
+                >
+                  Daily Summary
+                </Button>
+              </Tooltip>
+            </Box>
+
+            <Box display="flex" gap={2}>
+              <Tooltip title="Financial Report">
+                <AnimatedButton
+                  variant="contained"
+                  color="error"
+                  startIcon={<BiSolidReport size={18} />}
+                  sx={{
+                    px: 4,
+                    textTransform: "none",
+                    fontSize: 16,
+                  }}
+                  onClick={toggleReportTable}
+                >
+                  Financial Report
+                </AnimatedButton>
+              </Tooltip>
+
+              <Tooltip title="Export Data">
+                <Button
+                  variant="contained"
+                  color="info"
+                  startIcon={<IoMdDownload size={18} />}
+                  sx={{
+                    px: 4,
+                    textTransform: "none",
+                    fontSize: 16,
+                  }}
+                  onClick={handleDownload}
+                >
+                  Export
+                </Button>
+              </Tooltip>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Summary Cards */}
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          gap={3}
+          sx={{ mt: 4 }}
+        >
+          {[
+            { value: totalAmount, text: "Total Revenue" },
+            { value: totalBasic, text: "Basic Income" },
+            { value: totalTaxDue, text: "Tax Liability" },
+            { value: totalInterest, text: "Accrued Interest" },
+          ].map(({ value, text }) => (
+            <Card
+              key={text} // ✅ Use `text` as a unique key
+              sx={{
+                flex: 1,
+                p: 2.5,
+                borderRadius: "12px",
+                background: "linear-gradient(135deg, #3f51b5, #5c6bc0)",
+                color: "white",
+                boxShadow: "0 8px 24px rgba(63,81,181,0.15)",
+                transition: "transform 0.3s ease",
+                cursor: "pointer",
+                "&:hover": { transform: "translateY(-4px)" },
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ opacity: 0.9, mb: 0.5 }}>
+                {text}
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                {typeof value === "number"
+                  ? `₱ ${value.toLocaleString("en-PH", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
+                  : value}
+              </Typography>
+            </Card>
+          ))}
+        </Box>
+      </Box>
 
       {/* Sub-tables */}
       {showDailyTable && (
-        <DailyTable onDataFiltered={setDailyTableData} onBack={handleBack} setShowFilters={setShowFilters}/>
+        <DailyTable
+          onDataFiltered={setDailyTableData}
+          onBack={handleBack}
+          setShowFilters={setShowFilters}
+        />
       )}
       {showReportTable && (
-        <ReportTable onBack={handleBack} setShowFilters={setShowFilters}/>
+        <ReportTable onBack={handleBack} setShowFilters={setShowFilters} />
       )}
 
       {/* Main Table */}
       {showMainTable && (
-        <TableContainer 
+        <TableContainer
           component={Paper}
           sx={{
             borderRadius: 4,
             boxShadow: 3,
-            '& .MuiTableCell-root': {
-              py: 2
-            }
+            "& .MuiTableCell-root": {
+              py: 2,
+            },
           }}
         >
           <Table stickyHeader>
@@ -555,9 +654,9 @@ function Cedula() {
               {filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((row, idx) => (
-                  <TableRow key={row['CTC NO'] || row.id || idx}>
+                  <TableRow key={row?.["CTC NO"] || row?.id || idx}>
                     <TableCell align="center">{formatDate(row.DATE)}</TableCell>
-                    <TableCell align="center">{row['CTC NO']}</TableCell>
+                    <TableCell align="center">{row["CTC NO"]}</TableCell>
                     <TableCell align="center">{row.LOCAL}</TableCell>
                     <TableCell align="center">{row.NAME}</TableCell>
                     <TableCell align="center">
@@ -575,21 +674,26 @@ function Cedula() {
                     <TableCell align="center">{row.CASHIER}</TableCell>
                     <TableCell align="center">
                       <Button
-                                            aria-controls="simple-menu"
-                                            aria-haspopup="true"
-                                            onClick={(event) => handleMenuClick(event, row)}
-                                            variant="contained"
-                                            color="primary"
-                                          >
-                                            ACTIONS
-                                          </Button>
+                        aria-controls="simple-menu"
+                        aria-haspopup="true"
+                        onClick={(event) => handleMenuClick(event, row)}
+                        variant="contained"
+                        color="primary"
+                      >
+                        ACTIONS
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
             </TableBody>
           </Table>
 
-          <Box display="flex" justifyContent="flex-end" alignItems="center" m={1}>
+          <Box
+            display="flex"
+            justifyContent="flex-end"
+            alignItems="center"
+            m={1}
+          >
             <TablePagination
               rowsPerPageOptions={[5, 10]}
               component="div"
@@ -603,8 +707,7 @@ function Cedula() {
         </TableContainer>
       )}
 
-
-       {/* Single menu for ACTIONS */}
+      {/* Single menu for ACTIONS */}
       <Menu
         id="simple-menu"
         anchorEl={anchorEl}
@@ -614,8 +717,22 @@ function Cedula() {
       >
         <MenuItem onClick={handleViewClick}>View</MenuItem>
         <MenuItem onClick={handleEditClick}>Edit</MenuItem>
-        <MenuItem onClick={() => { console.log('Delete', selectedRow); handleMenuClose(); }}>Delete</MenuItem>
-        <MenuItem onClick={() => { console.log('Download', selectedRow); handleMenuClose(); }}>Download</MenuItem>
+        <MenuItem
+          onClick={() => {
+            console.log("Delete", selectedRow);
+            handleMenuClose();
+          }}
+        >
+          Delete
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            console.log("Download", selectedRow);
+            handleMenuClose();
+          }}
+        >
+          Download
+        </MenuItem>
       </Menu>
 
       {/* Dialog */}
@@ -624,6 +741,25 @@ function Cedula() {
           {dialogContent}
         </PopupDialog>
       )}
+
+      <Box {...props}>
+        {/*Snackbar Component (with prop fixes)*/}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
     </Box>
   );
 }

@@ -2,7 +2,7 @@ import { keyframes } from '@emotion/react';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import SearchIcon from '@mui/icons-material/Search';
-import { Autocomplete, TextField,Tooltip,Card } from '@mui/material';
+import { Autocomplete, Card, TextField, Tooltip } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -30,12 +30,12 @@ import { BiSolidReport } from "react-icons/bi";
 import { IoMdAdd, IoMdDownload } from "react-icons/io";
 import { IoToday } from "react-icons/io5";
 import { MdSummarize } from "react-icons/md";
+import * as XLSX from "xlsx";
 import RealPropertyTaxAbstract from '../../../../components/MD-Components/FillupForm/AbstractRPT';
 import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialog';
 import DailyTable from './TableData/DailyTable';
-import SummaryTable from './TableData/Summary';
-
 import ReportTable from './TableData/ReportTable';
+import SummaryTable from './TableData/Summary';
 
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -254,8 +254,6 @@ Row.propTypes = {
 };
  
 function RealPropertyTax() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [gfTotal, setGfTotal] = useState(0);
   const [sefTotal, setSEFTotal] = useState(0);
@@ -265,27 +263,24 @@ function RealPropertyTax() {
   const [showMainTable, setShowMainTable] = useState(true);
   const [showSummaryTable, setShowSummaryTable] = useState(false);
   const [month, setMonth] = useState(null);
-  const [day, setDay] = useState(null);
   const [year, setYear] = useState(null);
   const [dailyTableData, setDailyTableData] = useState([]);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
-  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showReportTable, setShowReportTable] = useState(false);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-   const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(true);
 
-    const handleMonthChange = (event, value) => {
-    setMonth(value ? value.value : null);
-  };
-
-  const handleYearChange = (event, value) => {
-    setYear(value ? value.value : null);
-  };
-  
+  const [filteredData, setFilteredData] = useState([]);
+  const [data, setData] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pendingSearchQuery, setPendingSearchQuery] = useState("");
+  const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: "",
+        severity: "info",
+      });
 
 const initialFormData = {
     date: '',
@@ -385,50 +380,60 @@ useEffect(() => {
   ]);
 
 
-useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        const response = await fetch('http://192.168.101.108:3001/api/allData');
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        const data = await response.json();
-        setRows(data);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
 
-    fetchAllData();
-  }, [showDailyTable, showSummaryTable, showMainTable]);
-  
 useEffect(() => {
-  const fetchAllData = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch('http://192.168.101.108:3001/api/allData');
-      if (!response.ok) {
-        throw new Error('Failed to fetch data. Please check the network response.');
-      }
-      const data = await response.json();
-      setRows(data);
+      const response = await axios.get(
+        "http://192.168.101.108:3001/api/allData"
+      );
+      setData(response.data);
+      setFilteredData(response.data); // Initialize with the full dataset
     } catch (error) {
-      handleFetchError(error);
-    } finally {
-      console.log('fetchAllData executed');
+      console.error("Error fetching data:", error);
     }
   };
+  fetchData();
+}, [showDailyTable, showSummaryTable, showMainTable]);
 
-  fetchAllData();
-}, []); // Empty dependency array to fetch data on component mount
+useEffect(() => {
+        if (!Array.isArray(data)) {
+          setFilteredData([]);
+          return;
+        }
+    
+        let newFiltered = data;
+    
+        // (a) Filter by searchQuery
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          newFiltered = newFiltered.filter((row) => {
+            const rowName = (row?.name ?? "").toLowerCase();
+            const rowCtcNo = (row?.receipt_no ?? "").toString().toLowerCase();
+            // .includes() = partial substring match
+            return rowName.includes(q) || rowCtcNo.includes(q);
+          });
+        }
+    
+        // (b) Filter by month/year
+        if (month || year) {
+          newFiltered = newFiltered.filter((row) => {
+            if (!row.date) return false;
+            const rowDate = new Date(row.date);
+            const rowMonth = rowDate.getMonth() + 1;
+            const rowYear = rowDate.getFullYear();
+    
+            const monthMatches = month ? rowMonth === parseInt(month) : true;
+            const yearMatches = year ? rowYear === parseInt(year) : true;
+            return monthMatches && yearMatches;
+          });
+        }
+    
+        setFilteredData(newFiltered);
+        setPage(0); // reset pagination when filters change
+      }, [data, searchQuery, month, year]);
 
-const handleFetchError = (error) => {
-  console.error('Error occurred during data fetch:', error.message);
-};
 
-  const handleSearchChange = (event) => {
-  setSearchTerm(event.target.value);
-  console.log('Search Term:', event.target.value);
-};
 
   const toggleDailyTable = () => {
     setShowDailyTable(true);
@@ -462,43 +467,65 @@ const handleFetchError = (error) => {
     // Optionally, refresh data or update UI
     // fetchData(); // If you have a fetchData function to refresh the data
   };
-
-
-  const handleDownload = async () => {
-    try {
-      if (showDailyTable) {
-        // Code for downloading daily table data
-        const response = await axios.post('http://192.168.101.108:3001/api/downloadDailyData', dailyTableData, {
-          responseType: 'blob',
-        });
-
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0]; // Get YYYY-MM-DD format
-        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // Get HH-MM-SS format
-        const filename = `DailyTable-${dateStr}-${timeStr}.csv`;
-
-        saveAs(response.data, filename);
-      } else {
-        const params = { month, day, year };
-        const response = await axios.get('http://192.168.101.108:3001/api/downloadData', {
-          params,
-          responseType: 'blob',
-        });
-
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0]; // Get YYYY-MM-DD format
-        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // Get HH-MM-SS format
-        const filename = `SummaryReport-${dateStr}-${timeStr}.csv`;
-
-        saveAs(response.data, filename);
-      }
-    } catch (error) {
-      console.error('Error downloading data:', error);
-      setSnackbarMessage('Error downloading data');
-      setSnackbarSeverity('error');
-      setOpenSnackbar(true);
-    }
+  
+  const getFilteredDataByMonthYear = () => {
+    if (!month || !year) return filteredData;
+    
+    return filteredData.filter((row) => {
+      if (!row.date) return false;
+      const rowDate = new Date(row.date);
+      return (
+        rowDate.getMonth() + 1 === Number(month) &&
+        rowDate.getFullYear() === Number(year)
+      );
+    });
   };
+
+
+  const handleDownload = () => {
+        if (!month || !year) {
+          setSnackbar({
+            open: true,
+            message: "Please select both month and year before downloading.",
+            severity: "warning",
+          });
+          return;
+        }
+    
+        const filteredExportData = getFilteredDataByMonthYear();
+    
+        if (filteredExportData.length === 0) {
+          setSnackbar({
+            open: true,
+            message:
+              "No data available to download for the selected month and year.",
+            severity: "info",
+          });
+          return;
+        }
+    
+        // Convert date to Philippine Time and human-readable format
+        const formattedData = filteredExportData.map((item) => {
+          return {
+            ...item,
+            DATE: new Date(item.DATE).toLocaleString("en-US", {
+              timeZone: "Asia/Manila", // Set timezone to PHT
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+            }),
+          };
+        });
+    
+        const worksheet = XLSX.utils.json_to_sheet(formattedData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Filtered Data");
+    
+        const file = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const blob = new Blob([file], { type: "application/octet-stream" });
+        const fileName = `RealPropertyTax_Report_${months.find((m) => m.value === month)?.label}_${year}.xlsx`;
+        saveAs(blob, fileName);
+      };
 
   const handleClickOpen = (content) => {
       
@@ -523,10 +550,6 @@ const handleFetchError = (error) => {
   };
 
 
-const filteredRows = rows.filter(row =>
-  row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  row.receipt_no.toLowerCase().includes(searchTerm.toLowerCase())
-);
 
 const handleBack = () => {
   setShowReportTable(false);
@@ -536,198 +559,250 @@ const handleBack = () => {
   setShowFilters(true);
 };
 
+const handleSearchClick = () => {
+  // Move whatever is typed in pendingSearchQuery into searchQuery
+  // This triggers the filter in the useEffect
+  setSearchQuery(pendingSearchQuery);
+};
+
 
   return (
-    <Box sx={{ flexGrow: 1, padding: 3, backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-<Box sx={{ mb: 4 }}>
+    <Box
+      sx={{
+        flexGrow: 1,
+        padding: 3,
+        backgroundColor: "#f5f5f5",
+        minHeight: "100vh",
+      }}
+    >
+      <Box sx={{ mb: 4 }}>
+        {/* Search & Filters Row */}
+        <Box
+          display="flex"
+          alignItems="center"
+          gap={3}
+          sx={{ py: 2, borderBottom: "1px solid rgba(0, 0, 0, 0.12)" }}
+        >
+          {showFilters && (
+            <Box display="flex" alignItems="center" gap={2} flexGrow={1}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                label="Search Records"
+                placeholder="Name or Receipt Number"
+                value={pendingSearchQuery}
+                onChange={(e) => setPendingSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  sx: { borderRadius: "8px" },
+                }}
+              />
+              <Box display="flex" gap={2}>
+                <Autocomplete
+                  disablePortal
+                  options={months}
+                  sx={{ width: 180 }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select Month"
+                      variant="outlined"
+                    />
+                  )}
+                  onChange={(e, v) => setMonth(v?.value)}
+                />
 
-{/* Search & Filters Row */}
-    <Box display="flex" alignItems="center" gap={3} sx={{ py: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}>
-    {showFilters && (
-        <Box display="flex" alignItems="center" gap={2} flexGrow={1}>
-        <TextField
-          fullWidth
-          variant="outlined"
-          label="Search Records"
-          placeholder="Name or Receipt Number"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          InputProps={{
-            startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon color="action" />
-              </InputAdornment>
-              ),
-              sx: { borderRadius: '8px' }
-            }}
-            />
-          
-          <Box display="flex" gap={2}>
-          <Autocomplete
-                    disablePortal
-                    id="month-selector"
-                    options={months}
-                    onChange={handleMonthChange}
-                    renderInput={(params) => <TextField {...params} label="Month" variant="outlined" />}
-                    sx={{ minWidth: '150px', backgroundColor: '#fff', borderRadius: '8px' }}
-                  />
-                  <Autocomplete
-                    disablePortal
-                    id="year-selector"
-                    options={years}
-                    onChange={handleYearChange}
-                    renderInput={(params) => <TextField {...params} label="Year" variant="outlined" />}
-                    sx={{ minWidth: '150px', backgroundColor: '#fff', borderRadius: '8px' }}
-                  />
-          </Box>
+                <Autocomplete
+                  disablePortal
+                  options={years}
+                  sx={{ width: 150 }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select Year"
+                      variant="outlined"
+                    />
+                  )}
+                  onChange={(e, v) => setYear(v?.value)}
+                />
+
+                <Button
+                  variant="contained"
+                  color="primary"
+                  sx={{
+                    px: 4,
+                    height: "56px",
+                    borderRadius: "8px",
+                    boxShadow: "none",
+                    "&:hover": { boxShadow: "0px 3px 6px rgba(0, 0, 0, 0.1)" },
+                  }}
+                  onClick={handleSearchClick}
+                >
+                  Apply Filters
+                </Button>
+              </Box>
+            </Box>
+          )}
         </Box>
-        )}
-    </Box>
 
-    {/* Action Buttons Row */}
+        {/* Action Buttons Row */}
         <Box display="flex" alignItems="center" gap={2} sx={{ py: 1 }}>
           <Box display="flex" gap={2} flexGrow={1}>
             <Tooltip title="Add New Entry">
-            <AnimatedButton
-            variant="contained"
-            startIcon={<IoMdAdd size={20} />}
-            sx={{
-              px: 4,
-              backgroundColor: '#1976d2',
-              '&:hover': { backgroundColor: '#1565c0' },
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={handleClickOpen}
-          >
-            New Entry
-          </AnimatedButton>
+              <AnimatedButton
+                variant="contained"
+                startIcon={<IoMdAdd size={20} />}
+                sx={{
+                  px: 4,
+                  backgroundColor: "#1976d2",
+                  "&:hover": { backgroundColor: "#1565c0" },
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+                onClick={handleClickOpen}
+              >
+                New Entry
+              </AnimatedButton>
             </Tooltip>
-    
+
             <Tooltip title="Generate Daily Report">
-            <AnimatedButton
-            ref={dailyButtonRef}
-            variant="contained"
-            color="success"
-            startIcon={<IoToday size={18} />}
-            sx={{
-              px: 4,
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={toggleDailyTable}
-          >
-            Daily Report
-          </AnimatedButton>
+              <AnimatedButton
+                ref={dailyButtonRef}
+                variant="contained"
+                color="success"
+                startIcon={<IoToday size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+                onClick={toggleDailyTable}
+              >
+                Daily Report
+              </AnimatedButton>
             </Tooltip>
           </Box>
-    
+
           <Box display="flex" gap={2}>
-          <Tooltip title="Summary Reports">
-          <AnimatedButton
-            variant="contained"
-            startIcon={<MdSummarize size={18} />}
-            sx={{
-              px: 4,
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={toggleSummaryTable}
-          >
-            Summary Report
-          </AnimatedButton>
-          </Tooltip>
+            <Tooltip title="Summary Reports">
+              <AnimatedButton
+                variant="contained"
+                startIcon={<MdSummarize size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+                onClick={toggleSummaryTable}
+              >
+                Summary Report
+              </AnimatedButton>
+            </Tooltip>
 
+            <Tooltip title="Financial Reports">
+              <AnimatedButton
+                variant="contained"
+                color="error"
+                startIcon={<BiSolidReport size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+                onClick={toggleReportTable}
+              >
+                Financial Report
+              </AnimatedButton>
+            </Tooltip>
 
-          <Tooltip title="Financial Reports">
-          <AnimatedButton
-            variant="contained"
-            color="error"
-            startIcon={<BiSolidReport size={18} />}
-            sx={{
-              px: 4,
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={toggleReportTable}
-          >
-            Financial Report
-          </AnimatedButton>
-          </Tooltip>
-    
             <Tooltip title="Export Data">
-            <AnimatedButton
-            variant="contained"
-            color="info"
-            startIcon={<IoMdDownload size={18} />}
-            sx={{
-              px: 4,
-              textTransform: 'none',
-              fontSize: 16
-            }}
-            onClick={handleDownload}
-          >
-            Download
-          </AnimatedButton>
+              <AnimatedButton
+                variant="contained"
+                color="info"
+                startIcon={<IoMdDownload size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+                onClick={handleDownload}
+              >
+                Download
+              </AnimatedButton>
             </Tooltip>
           </Box>
         </Box>
 
-{/* Summary Cards */}
-  <Box display="flex" justifyContent="space-between" gap={3} sx={{ mt: 4 }}>
-    {[
-      { value: total, text: 'Total Revenue' },
-      { value: shareTotal, text: '25% Share Inome' },
-      { value: gfTotal, text: 'General Fund' },
-      { value: sefTotal, text: 'SEF' }
-    ].map(({ value, text }, index) => (
-      <Card 
-        key={index}
-        sx={{
-          flex: 1,
-          p: 2.5,
-          borderRadius: '12px',
-          background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
-          color: 'white',
-          boxShadow: '0 8px 24px rgba(63,81,181,0.15)',
-          transition: 'transform 0.3s ease',
-          cursor: 'pointer',
-          '&:hover': { transform: 'translateY(-4px)' }
-        }}
-      >
-        <Typography variant="subtitle2" sx={{ opacity: 0.9, mb: 0.5 }}>
-          {text}
-        </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          {typeof value === 'number' 
-            ? new Intl.NumberFormat('en-PH', { 
-                style: 'currency', 
-                currency: 'PHP',
-                minimumFractionDigits: 2
-              }).format(value)
-            : value}
-        </Typography>
-      </Card>
-    ))}
-  </Box>
+        {/* Summary Cards */}
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          gap={3}
+          sx={{ mt: 4 }}
+        >
+          {[
+            { value: total, text: "Total Revenue" },
+            { value: shareTotal, text: "25% Share Income" },
+            { value: gfTotal, text: "General Fund" },
+            { value: sefTotal, text: "SEF" },
+          ].map(({ value, text }) => (
+            <Card
+              key={text}
+              sx={{
+                flex: 1,
+                p: 2.5,
+                borderRadius: "12px",
+                background: "linear-gradient(135deg, #3f51b5, #5c6bc0)",
+                color: "white",
+                boxShadow: "0 8px 24px rgba(63,81,181,0.15)",
+                transition: "transform 0.3s ease",
+                cursor: "pointer",
+                "&:hover": { transform: "translateY(-4px)" },
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ opacity: 0.9, mb: 0.5 }}>
+                {text}
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                {typeof value === "number"
+                  ? new Intl.NumberFormat("en-PH", {
+                      style: "currency",
+                      currency: "PHP",
+                      minimumFractionDigits: 2,
+                    }).format(value)
+                  : value}
+              </Typography>
+            </Card>
+          ))}
+        </Box>
+      </Box>
 
-</Box>
-       
-
-      {showSummaryTable && <SummaryTable setMonth={setMonth} setDay={setDay} setYear={setYear} onBack={handleBack} />}
+      {showSummaryTable && (
+        <SummaryTable
+          setMonth={setMonth}
+          setYear={setYear}
+          onBack={handleBack}
+        />
+      )}
       {showReportTable && <ReportTable onBack={handleBack} />}
-      {showDailyTable && <DailyTable onDataFiltered={setDailyTableData} onBack={handleBack} />}
+      {showDailyTable && (
+        <DailyTable onDataFiltered={setDailyTableData} onBack={handleBack} />
+      )}
       {showMainTable && (
-        <TableContainer 
-        component={Paper}
-        sx={{
-          borderRadius: 4,
-          boxShadow: 3,
-          '& .MuiTableCell-root': {
-            py: 2
-          }
-        }}
-      >
+        <TableContainer
+          component={Paper}
+          sx={{
+            borderRadius: 4,
+            boxShadow: 3,
+            "& .MuiTableCell-root": {
+              py: 2,
+            },
+          }}
+        >
           <Table aria-label="collapsible table">
             <TableHead>
               <TableRow>
@@ -747,16 +822,23 @@ const handleBack = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
-                <Row key={row.id} row={row} />
-              ))}
+              {filteredData
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((row) => (
+                  <Row key={row.id} row={row} />
+                ))}
             </TableBody>
           </Table>
-          <Box display="flex" justifyContent="flex-end" alignItems="center" m={1}>
+          <Box
+            display="flex"
+            justifyContent="flex-end"
+            alignItems="center"
+            m={1}
+          >
             <TablePagination
               rowsPerPageOptions={[5, 10]}
               component="div"
-              count={rows.length}
+              count={filteredData.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
@@ -771,15 +853,25 @@ const handleBack = () => {
           <RealPropertyTaxAbstract onSave={handleSave} onClose={handleClose} />
         </PopupDialog>
       )}
-      <Snackbar
-        open={openSnackbar}
-        autoHideDuration={6000}
-        onClose={() => setOpenSnackbar(false)}
-      >
-        <Alert onClose={() => setOpenSnackbar(false)} severity={snackbarSeverity}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
+
+      <Box>
+        {/*Snackbar Component (with prop fixes)*/}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
     </Box>
   );
 }

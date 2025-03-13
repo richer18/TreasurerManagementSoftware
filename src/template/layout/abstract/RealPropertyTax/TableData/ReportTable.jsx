@@ -1,23 +1,23 @@
-import React, { useState,useEffect,useMemo  } from 'react';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   Autocomplete,
   Box,
   Button,
-  TextField,
   Grid,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
+  TextField,
 } from '@mui/material';
-import PropTypes from 'prop-types';
-import MDTypography from '../../../../../components/MDTypography';
 import axios from 'axios';
+import PropTypes from 'prop-types';
+import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import MDTypography from '../../../../../components/MDTypography';
 
 const months = [
   { label: 'January', value: '1', days: 31 },
@@ -47,7 +47,7 @@ const years = [
 
 function ReportTable({ onBack }) {
   const [month, setMonth] = useState({ label: 'January', value: '1' });
-  const [year, setYear] = useState({ label: '2024', value: '2024' });
+  const [year, setYear] = useState({ label: '2025', value: '2025' });
 
    // Memoize defaultFields to ensure it's stable across renders
    const defaultFields = useMemo(() => ({
@@ -103,10 +103,22 @@ const formatCurrency = (value) => {
   useEffect(() => {
     // Define all API endpoints with their identification keys
     const apiEndpoints = [
-      { key: 'LandSharingData', url: 'http://192.168.101.20:3001/api/LandSharingData' },
-      { key: 'sefLandSharingData', url: 'http://192.168.101.20:3001/api/sefLandSharingData' },
-      { key: 'buildingSharingData', url: 'http://192.168.101.20:3001/api/buildingSharingData' },
-      { key: 'sefBuildingSharingData', url: 'http://192.168.101.20:3001/api/sefBuildingSharingData' },
+      {
+        key: "LandSharingData",
+        url: "http://192.168.101.108:3001/api/LandSharingData",
+      },
+      {
+        key: "sefLandSharingData",
+        url: "http://192.168.101.108:3001/api/sefLandSharingData",
+      },
+      {
+        key: "buildingSharingData",
+        url: "http://192.168.101.108:3001/api/buildingSharingData",
+      },
+      {
+        key: "sefBuildingSharingData",
+        url: "http://192.168.101.108:3001/api/sefBuildingSharingData",
+      },
     ];
 
     // Create an array of axios GET requests
