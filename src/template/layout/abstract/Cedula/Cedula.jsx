@@ -147,7 +147,7 @@ function Cedula() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/cedula');
+        const response = await axios.get('http://192.168.101.108:3001/api/cedula');
         setData(response.data);
         setFilteredData(response.data); // Initialize with the full dataset
       } catch (error) {
