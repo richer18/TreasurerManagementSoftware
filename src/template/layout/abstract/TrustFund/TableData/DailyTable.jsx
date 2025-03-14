@@ -84,7 +84,7 @@ useEffect(() => {
       if (selectedYear) queryParams.append('year', selectedYear.value);
 
       const response = await fetch(
-        `http://localhost:3001/api/allDataTrustFund?${queryParams.toString()}`
+        `http://192.168.101.108:3001/api/allDataTrustFund?${queryParams.toString()}`
       );
       const result = await response.json();
       console.log('Fetched Data:', result);
@@ -119,7 +119,7 @@ useEffect(() => {
   const handleViewClick = async (date) => {
   try {
     const response = await axios.get(
-      `http://localhost:3001/api/viewalldataTrustFundTableView?date=${dayjs(date).format('YYYY-MM-DD')}`
+      `http://192.168.101.108:3001/api/viewalldataTrustFundTableView?date=${dayjs(date).format("YYYY-MM-DD")}`
     );
 
     // Transform numeric fields to strings

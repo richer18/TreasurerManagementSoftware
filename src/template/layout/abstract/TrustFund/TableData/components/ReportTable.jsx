@@ -67,9 +67,12 @@ function ReportTable({ onBack }) {
           try {
             console.log("Fetching data for month:", month.value, "and year:", year.value);
       
-            const response = await axios.get(`http://localhost:3001/api/trustFundDataReport`, {
-              params: { month: month.value, year: year.value },
-            });
+            const response = await axios.get(
+              `http://192.168.101.108:3001/api/trustFundDataReport`,
+              {
+                params: { month: month.value, year: year.value },
+              }
+            );
       
             if (response.data.length > 0) {
               const filteredData = response.data.reduce((acc, row) => ({

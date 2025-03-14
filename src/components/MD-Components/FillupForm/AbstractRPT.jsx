@@ -297,14 +297,17 @@ const handleReset = () => {
     if (formData.id) {
       // Update logic
       response = await axios.put(
-        `http://localhost:3001/api/update/${formData.id}`,
+        `http://192.168.101.108:3001/api/update/${formData.id}`,
         newEntry
       );
       console.log('Update response:', response.data);
       alert('Data updated successfully');
     } else {
       // Insert logic
-      response = await axios.post('http://localhost:3001/api/save', newEntry);
+      response = await axios.post(
+        "http://192.168.101.108:3001/api/save",
+        newEntry
+      );
       console.log('Insert response:', response.data);
       alert('Data inserted successfully');
     }
