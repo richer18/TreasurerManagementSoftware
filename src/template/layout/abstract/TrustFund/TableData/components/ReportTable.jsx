@@ -45,6 +45,8 @@ import PrintIcon from '@mui/icons-material/Print';
     value: 2050 - i,
 }));
 
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+
 function ReportTable({ onBack }) {
     const [month, setMonth] = useState({ label: 'January', value: '1' });
       const [year, setYear] = useState({ label: '2025', value: '2025' });
@@ -68,7 +70,7 @@ function ReportTable({ onBack }) {
             console.log("Fetching data for month:", month.value, "and year:", year.value);
       
             const response = await axios.get(
-              `http://192.168.101.108:3001/api/trustFundDataReport`,
+              `${BASE_URL}/api/trustFundDataReport`,
               {
                 params: { month: month.value, year: year.value },
               }

@@ -17,6 +17,7 @@ app.use(express.json()); // Support JSON payloads
 
 
 // Create connection to MySQL database
+
 const dbConfig = {
   host: '192.168.101.108',
   user: 'treasurer_root2',
@@ -3738,20 +3739,25 @@ app.get("/api/fetch-report", (req, res) => {
   const sql = `
     SELECT
     DATE_FORMAT(date, '%Y-%m-%d') AS "date",
-    COALESCE(ctc, 0) AS "ctc",
-    COALESCE(rpt, 0) AS "rpt",
     COALESCE(GF, 0) AS "GF",
     COALESCE(TF, 0) AS "TF",
-    COALESCE(gfAndTf, 0) AS "gfAndTf",
-    COALESCE(dueFrom, 0) AS "dueFrom",  -- ✅ Get from database instead of setting 0
+    COALESCE(dueFrom, 0) AS "dueFrom",
     COALESCE(rcdTotal, 0) AS "rcdTotal",
-    COALESCE(comment, '') AS "comment", -- ✅ Ensure no NULL values, set empty string instead
+    COALESCE(comment, '') AS "comment",
+
+    -- Individual Adjustment Values
     COALESCE(CTCunder, 0) AS "CTCunder",
     COALESCE(CTCover, 0) AS "CTCover",
     COALESCE(RPTunder, 0) AS "RPTunder",
     COALESCE(RPTover, 0) AS "RPTover",
     COALESCE(GFTFunder, 0) AS "GFTFunder",
-    COALESCE(GFTFover, 0) AS "GFTFover"
+    COALESCE(GFTFover, 0) AS "GFTFover",
+
+    -- ✅ Computed Values
+    (COALESCE(ctc, 0) + COALESCE(CTCunder, 0) - COALESCE(CTCover, 0)) AS "ctc",
+    (COALESCE(rpt, 0) + COALESCE(RPTunder, 0) - COALESCE(RPTover, 0)) AS "rpt",
+    (COALESCE(gfAndTf, 0) + COALESCE(GFTFunder, 0) - COALESCE(GFTFover, 0)) AS "gfAndTf"
+
     FROM full_report_rcd
     ORDER BY date;
   `;
@@ -3763,26 +3769,21 @@ app.get("/api/fetch-report", (req, res) => {
       return;
     }
 
-    // ✅ Convert "YYYY-MM-DD" → "MM-DD-YYYY" before sending to frontend
-    const resultsFormatted = results.map((row) => {
-      if (!row.date) {
-        console.warn("⚠️ Missing date for row:", row);
-        return { ...row, date: "Unknown Date" }; // Fallback
-      }
+    // ✅ Transform results to group adjustments
+    const formattedResults = results.map((row) => ({
+      ...row,
+      adjustments: {
+        ctc: { under: row.CTCunder, over: row.CTCover },
+        rpt: { under: row.RPTunder, over: row.RPTover },
+        gfAndTf: { under: row.GFTFunder, over: row.GFTFover },
+      },
+    }));
 
-      // ✅ Convert "YYYY-MM-DD" to "MM-DD-YYYY"
-      const [year, month, day] = row.date.split("-");
-      const formattedDate = `${month}-${day}-${year}`;
-
-      return {
-        ...row,
-        date: formattedDate, // ✅ Send formatted date to frontend
-      };
-    });
-
-    res.json(resultsFormatted);
+    res.json(formattedResults);
   });
 });
+
+
 
 app.post("/api/update-report", (req, res) => {
   console.log("🔹 Request received:", req.body);
@@ -3913,26 +3914,55 @@ app.get("/api/fetch-report-json", async (req, res) => {
   }
 });
 
-// API to Update Report JSON
 app.post("/api/save-adjustment", (req, res) => {
   const { date, column, value } = req.body;
 
+  console.log("📥 Incoming Request:", req.body); // Debug incoming request
+
   if (!date || !column || value === undefined) {
-    return res.status(400).json({ error: "Missing required fields" });
+      console.error("❌ Missing required fields", req.body);
+      return res.status(400).json({ error: "Missing required fields" });
   }
 
-  const sql = `UPDATE full_report_rcd SET ${column} = ${column} + ? WHERE date = ?`;
+  const allowedColumns = [
+      "CTCunder", "CTCover",
+      "RPTunder", "RPTover",
+      "GFTFunder", "GFTFover"
+  ];
+
+  if (!allowedColumns.includes(column)) {
+      console.error("❌ Invalid column name:", column);
+      return res.status(400).json({ error: "Invalid column name" });
+  }
+
+  // ✅ Fixed Query - Remove DATE_FORMAT
+  const sql = `
+      UPDATE full_report_rcd
+      SET ${column} = ?
+      WHERE date = ?
+  `;
 
   db.query(sql, [value, date], (err, result) => {
-    if (err) {
-      console.error("❌ Database error:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
+      if (err) {
+          console.error("❌ Database error:", err);
+          return res.status(500).json({ error: "Database update failed" });
+      }
 
-    console.log(`✅ Updated ${column} for date ${date} by ${value}`);
-    res.json({ success: true, message: "Adjustment saved successfully!" });
+      console.log("🔄 SQL Update Result:", result);
+
+      if (result.affectedRows === 0) {
+          console.warn("⚠️ No record found for date:", date);
+          return res.status(404).json({ error: "No record found for the given date" });
+      }
+
+      console.log(`✅ Updated ${column} for date ${date} to ${value}`);
+      res.json({ success: true, message: "Adjustment updated successfully!" });
   });
 });
+
+// 🏆 Ensure this is before `app.listen()`
+console.log("✅ API Route Registered: /api/save-adjustment");
+
 
 
 app.listen(port, () => {

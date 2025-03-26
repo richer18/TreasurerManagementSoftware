@@ -45,7 +45,7 @@ import GeneralFundDialogPopupTOTAL from '../../../../components/MD-Components/Po
 import GeneralFundDialogPopupRF from '../../../../components/MD-Components/Popup/components/GeneralFundPopup/GeneralFundReportPopupRF';
 import GeneralFundDialogPopupTOB from '../../../../components/MD-Components/Popup/components/GeneralFundPopup/GeneralFundReportPopupTOB';
 import GeneralFundDialog from '../../../../components/MD-Components/Popup/GeneralFundDialog';
-import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialog';
+import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialogGF_FORM';
 import DailyTable from './TableData/DailyTable';
 import ReportTable from './TableData/ReportTable';
 // --------------------------------------------------------

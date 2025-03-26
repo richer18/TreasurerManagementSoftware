@@ -1,4 +1,4 @@
-import AddIcon from '@mui/icons-material/Add';
+
 import {
   Box,
   Button,
@@ -7,7 +7,7 @@ import {
   MenuItem,
   Select,
   TextField,
-  Tooltip,
+
   Typography,
 } from '@mui/material';
 import { styled } from '@mui/system';
@@ -17,26 +17,18 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
-import NewUser from '../FillupForm/components/NewUser';
-import PopupDialogNew from '../Popup/PopupNewCedula';
+
 
 // Styled Components
 const Root = styled(Box)({
   padding: '30px',
-  backgroundColor: 'white',
+  // backgroundColor: 'white',
   borderRadius: '8px',
-  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+  // boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
   maxWidth: '600px',
   margin: '20px auto',
 });
 
-const Title = styled(Typography)({
-  textAlign: 'center',
-  marginBottom: '20px',
-  fontWeight: 'bold',
-  fontSize: '1.8rem',
-  color: '#333',
-});
 
 const InputField = styled(TextField)(({ theme }) => ({
   margin: `${theme.spacing(2)} 0`,
@@ -82,8 +74,8 @@ function Cedula({ data, mode }) {
     taxToPay: '',
     userid: '',
   });
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [dialogContent, setDialogContent] = useState(null);
+  
+
 
   const [savingInProgress, setSavingInProgress] = useState(false);
 
@@ -174,49 +166,59 @@ const mapDataToForm = (data) => ({
   }, [formData]);
 
   const handleSave = async () => {
-  if (!formData.receipt || savingInProgress) return; // Prevent multiple triggers
-  setSavingInProgress(true); // Lock saving to prevent duplicates
-
-  const now = new Date();
-  const dataToSave = {
-    DATEISSUED: selectedDate ? selectedDate.format('YYYY-MM-DD') : null,
-    TRANSDATE: now.toISOString(),
-    CTCNO: formData.receipt,
-    CTCTYPE: 'CTCI',
-    OWNERNAME: formData.taxpayerName,
-    BASICTAXDUE: basicCommunityTax.toFixed(2),
-    SALTAXDUE: formData.taxToPay,
-    INTEREST: interest,
-    TOTALAMOUNTPAID: total,
-    USERID: formData.userid,
-    CTCYEAR: now.getFullYear(),
-  };
-
-  const endpoint = mode === 'edit' && formData?.receipt
-    ? `http://192.168.101.108:3001/api/updateCedulaData/${formData.receipt}`
-    : 'http://192.168.101.108:3001/api/saveCedulaData';
-
-  const method = mode === 'edit' ? 'PUT' : 'POST';
-
-  try {
-    const response = await fetch(endpoint, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dataToSave),
-    });
-
-    if (response.ok) {
-      console.log('Operation successful');
+    if (!formData.receipt || savingInProgress) return; // Prevent multiple triggers
+    setSavingInProgress(true); // Lock saving to prevent duplicates
+  
+    const now = new Date();
+    const dataToSave = {
+      DATEISSUED: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
+      TRANSDATE: now.toISOString(),
+      CTCNO: formData.receipt,
+      CTCTYPE: "CTCI",
+      OWNERNAME: formData.taxpayerName,
+      BASICTAXDUE: basicCommunityTax.toFixed(2),
+      SALTAXDUE: formData.taxToPay,
+      INTEREST: interest,
+      TOTALAMOUNTPAID: total,
+      USERID: formData.userid,
+      CTCYEAR: now.getFullYear(),
+    };
+  
+    const baseUrl = "http://192.168.101.108:3001/api";
+    const endpoint =
+      mode === "edit" && formData?.receipt
+        ? `${baseUrl}/updateCedulaData/${formData.receipt}`
+        : `${baseUrl}/saveCedulaData`;
+  
+    const method = mode === "edit" ? "PUT" : "POST";
+  
+    try {
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSave),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Operation failed: ${response.statusText}`);
+      }
+  
+      console.log("Operation successful");
+      alert(mode === "edit" ? "Data updated successfully" : "Data saved successfully");
+  
       handleReset(); // Reset form fields after successful save
-    } else {
-      console.error('Operation failed:', response.statusText);
+  
+      // Refresh page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error("Error during save:", error);
+      alert("An error occurred while saving. Please try again.");
+    } finally {
+      setSavingInProgress(false); // Unlock saving
     }
-  } catch (error) {
-    console.error('Error during save:', error);
-  } finally {
-    setSavingInProgress(false); // Unlock saving
-  }
-};
+  };
 
   const handleReset = () => {
     setFormData({
@@ -230,23 +232,12 @@ const mapDataToForm = (data) => ({
     setTotal(0);
   };
 
-  const handleDialogClose = () => setIsDialogOpen(false);
+ 
 
-  const handleButtonClick = () => {
-    setDialogContent(<NewUser />);
-    setIsDialogOpen(true);
-  };
 
   return (
     <Root>
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Title>CEDULA</Title>
-        <Tooltip title="New User?">
-          <Button onClick={handleButtonClick}>
-            <AddIcon /> REGISTER
-          </Button>
-        </Tooltip>
-      </Box>
+      
 
       <LocalizationProvider dateAdapter={AdapterDayjs}>
   <DatePicker
@@ -319,12 +310,7 @@ const mapDataToForm = (data) => ({
           SAVE
         </CustomButton>
       </ButtonContainer>
-
-      {isDialogOpen && (
-        <PopupDialogNew open={isDialogOpen} onClose={handleDialogClose}>
-          {dialogContent}
-        </PopupDialogNew>
-      )}
+     
     </Root>
   );
 }

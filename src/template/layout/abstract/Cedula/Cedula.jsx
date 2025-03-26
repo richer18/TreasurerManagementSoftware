@@ -35,7 +35,7 @@ import { IoMdAdd, IoMdDownload } from "react-icons/io";
 import { IoToday } from "react-icons/io5";
 
 import Cedulas from "../../../../components/MD-Components/FillupForm/Cedula";
-import PopupDialog from "../../../../components/MD-Components/Popup/PopupDialog";
+import PopupDialog from "../../../../components/MD-Components/Popup/PopupDialogCedula_FORM";
 import DailyTable from "./TableData/DailyTable";
 import ReportTable from "./TableData/ReportTable";
 
@@ -106,6 +106,9 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString("en-US", options);
 };
 
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+
+
 // ------------------------
 //   Main Component
 // ------------------------
@@ -124,6 +127,7 @@ function Cedula({ ...props }) {
   // 4. Month/year filters
   const [month, setMonth] = useState(null);
   const [year, setYear] = useState(null);
+  const [day, setDay] = useState(null);
 
   // Table pagination
   const [page, setPage] = useState(0);
@@ -157,31 +161,32 @@ function Cedula({ ...props }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(
-          "http://192.168.101.108:3001/api/cedula"
-        );
+        const response = await axios.get(`${BASE_URL}/api/cedula`);
         setData(response.data);
         setFilteredData(response.data); // Initialize with the full dataset
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
+  
     fetchData();
   }, []);
 
   // ------------------------
-  //  2) Filter by Month & Year
+  //  2) Filter by Month , Day, & Year
   // ------------------------
   const getFilteredDataByMonthYear = () => {
     if (!month || !year) return filteredData;
-
+  
     return filteredData.filter((row) => {
       if (!row.DATE) return false;
       const rowDate = new Date(row.DATE);
-      return (
-        rowDate.getMonth() + 1 === Number(month) &&
-        rowDate.getFullYear() === Number(year)
-      );
+      
+      const monthMatches = rowDate.getMonth() + 1 === Number(month);
+      const yearMatches = rowDate.getFullYear() === Number(year);
+      const dayMatches = day ? rowDate.getDate() === Number(day) : true;
+  
+      return monthMatches && yearMatches && dayMatches;
     });
   };
 
@@ -193,38 +198,39 @@ function Cedula({ ...props }) {
       setFilteredData([]);
       return;
     }
-
+  
     let newFiltered = data;
-
+  
     // (a) Filter by searchQuery
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       newFiltered = newFiltered.filter((row) => {
         const rowName = (row?.NAME ?? "").toLowerCase();
         const rowCtcNo = (row?.["CTC NO"] ?? "").toString().toLowerCase();
-        // .includes() = partial substring match
         return rowName.includes(q) || rowCtcNo.includes(q);
       });
     }
-
-    // (b) Filter by month/year
-    if (month || year) {
+  
+    // (b) Filter by month, day, and year
+    if (month || year || day) {
       newFiltered = newFiltered.filter((row) => {
         if (!row.DATE) return false;
         const rowDate = new Date(row.DATE);
         const rowMonth = rowDate.getMonth() + 1;
+        const rowDay = rowDate.getDate();
         const rowYear = rowDate.getFullYear();
-
+  
         const monthMatches = month ? rowMonth === parseInt(month) : true;
+        const dayMatches = day ? rowDay === parseInt(day) : true;
         const yearMatches = year ? rowYear === parseInt(year) : true;
-        return monthMatches && yearMatches;
+  
+        return monthMatches && dayMatches && yearMatches;
       });
     }
-
+  
     setFilteredData(newFiltered);
     setPage(0); // reset pagination when filters change
-  }, [data, searchQuery, month, year]);
-
+  }, [data, searchQuery, month, day, year]);
   // ------------------------
   //  3) Table pagination
   // ------------------------
@@ -457,6 +463,17 @@ function Cedula({ ...props }) {
                       />
                     )}
                     onChange={(e, v) => setMonth(v?.value)}
+                  />
+                  {/* Day Filter */}
+                  
+                  <Autocomplete
+                  disablePortal
+                  options={[...Array(31)].map((_, i) => ({ label: `${i + 1}`, value: i + 1 }))}
+                  sx={{ width: 120 }}
+                  renderInput={(params) => (
+                  <TextField {...params} label="Select Day" variant="outlined" />
+                )}
+                onChange={(e, v) => setDay(v?.value)}
                   />
 
                   <Autocomplete

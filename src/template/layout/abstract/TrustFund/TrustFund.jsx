@@ -34,7 +34,7 @@ import FloraMyImg from "../../../../assets/images/Flora_My.jpg";
 import RicardoImg from "../../../../assets/images/Ricardo_Enopia.jpg";
 import RowenaImg from "../../../../assets/images/Rowena_Gaer.jpg";
 import TrustFunds from "../../../../components/MD-Components/FillupForm/AbstractTF";
-import PopupDialog from "../../../../components/MD-Components/Popup/PopupDialog";
+import PopupDialog from "../../../../components/MD-Components/Popup/PopupDialogTF_FORM";
 import TrustFundDialog from "../../../../components/MD-Components/Popup/TrustFundDialog";
 import ReportTable from "./TableData/components/ReportTable";
 
@@ -112,6 +112,8 @@ const years = [
   { label: "2029", value: "2029" },
 ];
 
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+
 function TrustFund() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState(null);
@@ -162,7 +164,7 @@ function TrustFund() {
       try {
         const fetchTotal = async (endpoint) => {
           const response = await fetch(
-            `http://192.168.101.108:3001/api/${endpoint}`
+            `${BASE_URL}/api/${endpoint}`
           );
           if (!response.ok)
             throw new Error(`Network response was not ok ${endpoint}`);
@@ -223,15 +225,14 @@ function TrustFund() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(
-          "http://192.168.101.108:3001/api/table-trust-fund-all"
-        );
+        const response = await axios.get(`${BASE_URL}/api/table-trust-fund-all`);
         setData(response.data);
         setFilteredData(response.data); // Initialize with the full dataset
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching table-trust-fund-all data:", error.message);
       }
     };
+  
     fetchData();
   }, []);
 
@@ -294,21 +295,27 @@ function TrustFund() {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const response = await fetch(
-          "http://192.168.101.108:3001/api/trust-fund-total"
-        );
-        if (!response.ok) throw new Error("Network response was not ok total");
+        const response = await fetch(`${BASE_URL}/api/trust-fund-total`);
+  
+        if (!response.ok) {
+          const errorMessage = await response.text();
+          throw new Error(`Network response was not ok: ${errorMessage}`);
+        }
+  
         const data = await response.json();
-        if (data.length > 0) {
-          const total = parseFloat(data[0].overall_total);
-          setAllTotal(total);
+  
+        if (Array.isArray(data) && data.length > 0) {
+          setAllTotal(parseFloat(data[0]?.overall_total) || 0);
         } else {
-          console.log("No data received");
+          console.warn("No data received for trust-fund-total");
+          setAllTotal(0);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching trust-fund-total data:", error.message);
+        setAllTotal(0); // Ensure state is updated even in case of failure
       }
     };
+  
     fetchAllData();
   }, []);
 

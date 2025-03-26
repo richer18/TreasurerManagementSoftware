@@ -1,7 +1,6 @@
 import { Box, Button, LinearProgress, Typography } from '@mui/material';
 import FormControl from '@mui/material/FormControl';
 import FormHelperText from '@mui/material/FormHelperText';
-import Grid from '@mui/material/Grid';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
@@ -12,29 +11,15 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { format } from 'date-fns';
 import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
-import MDTypography from '../../../components/MDTypography';
 import './style.css';
 
 const Root = styled(Box)({
   padding: '30px',
-  backgroundColor: '#ffffff',
+  
   borderRadius: '8px',
-  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+  
 });
 
-const GridContainer = styled(Grid)({
-  spacing: 2,
-  justifyContent: 'center',
-});
-
-
-const Title = styled(MDTypography)({
-  textAlign: 'center',
-  marginBottom: '20px',
-  fontWeight: 'bold',
-  fontSize: '1.5rem',
-  color: '#0a0a0a',
-});
 
 // InputField component for consistent styling
 const InputField = styled(TextField)(({ theme }) => ({
@@ -279,48 +264,48 @@ const handleReset = () => {
   };
 
   const handleSave = async () => {
-  if (!validateForm()) {
-    return;
-  }
-
-  setShowProgress(true);
-  simulateProgress();
-
-  const newEntry = createData({
-    date: formData.date,
-    ...formData,
-  });
-
-  try {
-    let response;
-
-    if (formData.id) {
-      // Update logic
-      response = await axios.put(
-        `http://192.168.101.108:3001/api/update/${formData.id}`,
-        newEntry
-      );
-      console.log('Update response:', response.data);
-      alert('Data updated successfully');
-    } else {
-      // Insert logic
-      response = await axios.post(
-        "http://192.168.101.108:3001/api/save",
-        newEntry
-      );
-      console.log('Insert response:', response.data);
-      alert('Data inserted successfully');
+    if (!validateForm()) {
+      return;
     }
-
-    setProgress(100);
-    setTimeout(() => setShowProgress(false), 500);
-    onSave(newEntry);
-  } catch (error) {
-    console.error('Error saving data:', error);
-    alert(error.response?.data?.error || 'Error saving data');
-    setShowProgress(false);
-  }
-};
+  
+    setShowProgress(true);
+    simulateProgress();
+  
+    const newEntry = createData({
+      date: formData.date,
+      ...formData,
+    });
+  
+    try {
+      let response;
+      const baseUrl = "http://192.168.101.108:3001/api";
+  
+      if (formData.id) {
+        // Update logic
+        response = await axios.put(`${baseUrl}/update/${formData.id}`, newEntry);
+        console.log("Update response:", response.data);
+        alert("Data updated successfully");
+      } else {
+        // Insert logic
+        response = await axios.post(`${baseUrl}/save`, newEntry);
+        console.log("Insert response:", response.data);
+        alert("Data inserted successfully");
+      }
+  
+      setProgress(100);
+      setTimeout(() => setShowProgress(false), 500);
+      onSave(newEntry);
+  
+      // Refresh the page after a slight delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error("Error saving data:", error);
+      alert(error.response?.data?.error || "Error saving data");
+      setShowProgress(false);
+    }
+  };
 
 
 
@@ -353,7 +338,6 @@ const handleFormDataChange = (event) => {
   return (
     <Root>
   <form onSubmit={handleSubmit}>
-    <Title sx={{ textAlign: 'center', mb: 4 }}>Abstract of Real Property Tax</Title>
     
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <InputField

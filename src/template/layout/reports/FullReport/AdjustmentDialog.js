@@ -13,7 +13,7 @@ const AdjustmentDialog = ({ open, onClose, rowData, field }) => {
       // Parse date components from "January 2, 2025"
       const [month, day, year] = rowData.date.replace(',', '').split(' ');
 
-      const response = await fetch('http://localhost:3001/api/save-adjustment', {
+      const response = await fetch('http://192.168.101.108:3001/api/save-adjustment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

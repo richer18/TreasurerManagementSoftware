@@ -14,22 +14,12 @@ import {Button} from '@mui/material';
 
 const Root = styled(Box)({
   padding: '30px',
-  backgroundColor: '#FDFDFDFF',
   borderRadius: '8px',
-  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
 });
   
   const GridContainer = styled(Grid)({
     spacing: 2,
     justifyContent: 'center',
-  });
-
-  const Title = styled(Typography)({
-    textAlign: 'center',
-    marginBottom: '20px',
-    fontWeight: 'bold',
-    fontSize: '1.5rem',
-    color: 'black',
   });
 
   const InputField = styled(TextField)(({ theme }) => ({
@@ -91,9 +81,9 @@ const fieldConfigs = {
     );
 };
 
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
 
-
-function AbstractTF({ data, mode }) {
+function AbstractTF({ data, mode,refreshData  }) {
   const [fields, setFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
   const [showSelect, setShowSelect] = useState(true);
@@ -175,30 +165,36 @@ const handleChange = (event) => {
 
     try {
       const url = mode === 'edit'
-        ? `http://192.168.101.108:3001/api/update-trust-fund/${data.ID}`
-        : 'http://192.168.101.108:3001/api/save-trust-fund';
+        ? `${BASE_URL}/api/update-trust-fund/${data.ID}`
+        : `${BASE_URL}/api/save-trust-fund`;
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: mode === 'edit' ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error(response.status === 400 ? 'Receipt number already exists.' : 'Failed to save data.');
+        const errorMessage = response.status === 400 ? 'Receipt number already exists.' : 'Failed to save data.';
+        throw new Error(errorMessage);
       }
 
       setAlertMessage(mode === 'edit' ? 'Data updated successfully.' : 'Data saved successfully.');
       setAlertSeverity('success');
 
       handleClearFields();
+
+      // Refresh the page after a short delay to allow alert messages to be shown
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000); // Adjust delay if needed
     } catch (error) {
       setAlertMessage(error.message);
       setAlertSeverity('error');
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, taxpayerName, receiptNumber, typeReceipt, selectedCashier, total, fieldValues, mode, data,handleClearFields]);
+  }, [selectedDate, taxpayerName, receiptNumber, typeReceipt, selectedCashier, total, fieldValues, mode, data, handleClearFields]);
 
 
 // Handle form submission and progress animation
@@ -270,7 +266,6 @@ React.useEffect(() => {
     const filteredOptions = filterOptions(fieldOptions);
   return (
     <Root>
-      <Title color="black">Trust Fund Abstract</Title>
       <GridContainer container spacing={2}>
         <Grid item xs={12}>
           <LocalizationProvider dateAdapter={AdapterDayjs}>

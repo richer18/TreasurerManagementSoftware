@@ -83,6 +83,8 @@ const formatDate = (dateString) => {
   }
 };
 
+const BASE_URL = "http://192.168.101.108:3001";
+
 function DailyTable({ onBack, setShowFilters }) {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
@@ -112,7 +114,7 @@ function DailyTable({ onBack, setShowFilters }) {
 
       try {
         const response = await fetch(
-          `http://192.168.101.108:3001/api/CedulaDailyCollection?${queryParams.toString()}`
+          `${BASE_URL}/api/CedulaDailyCollection?${queryParams.toString()}`
         );
         const data = await response.json();
         setCollectionData(data);
@@ -138,7 +140,7 @@ function DailyTable({ onBack, setShowFilters }) {
         // Format to "YYYY-MM-DD" for MySQL
         const formattedDate = format(parsedDate, 'yyyy-MM-dd');
         
-        fetch(`http://192.168.101.108:3001/api/viewDailyCollectionDetailsCedula?date=${formattedDate}`)
+        fetch(`${BASE_URL}/api/viewDailyCollectionDetailsCedula?date=${formattedDate}`)
           .then((response) => {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
@@ -167,26 +169,29 @@ function DailyTable({ onBack, setShowFilters }) {
   };
 
   const handleSaveComment = async (row) => {
-    const formattedDate = new Date(row.DATE).toISOString().split('T')[0]; // Convert to YYYY-MM-DD
+    const formattedDate = new Date(row.DATE).toISOString().split("T")[0]; // Convert to YYYY-MM-DD
   
     try {
-      const response = await fetch('http://192.168.101.108:3001/api/saveCommentCedula', {
-        method: 'POST',
+      const response = await fetch(`${BASE_URL}/api/saveCommentCedula`, { // Fixed template literal
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           date: formattedDate,
-          ctcNo: row['CTC NO'],
-          comment: row.COMMENT || '',
+          ctcNo: row["CTC NO"],
+          comment: row.COMMENT?.trim() || "", // Trim whitespace for cleanliness
         }),
       });
   
-      if (!response.ok) throw new Error('Failed to save comment');
+      if (!response.ok) {
+        const errorMessage = await response.text(); // Get server error message if available
+        throw new Error(`Failed to save comment: ${errorMessage}`);
+      }
   
-      console.log('Comment saved successfully');
+      console.log("Comment saved successfully");
     } catch (error) {
-      console.error('Error saving comment:', error);
+      console.error("Error saving comment:", error.message);
     }
   };
 

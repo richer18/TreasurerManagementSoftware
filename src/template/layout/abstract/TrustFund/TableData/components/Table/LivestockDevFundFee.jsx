@@ -27,6 +27,8 @@ const years = Array.from({ length: 100 }, (_, i) => ({
     value: 2050 - i,
 }));
 
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+
 function RegulatoryFees() {
    const [month, setMonth] = useState(null);
     const [day, setDay] = useState(null);
@@ -39,23 +41,27 @@ function RegulatoryFees() {
     const handleYearChange = (event, newValue) => setYear(newValue);
     
     useEffect(() => {
-    const fetchData = async () => {
-        try {
-        const response = await axios.get('http://192.168.101.108:3001/api/trust-fund-livestock-dev-fund-fees', {
-            params: {
-            month: month ? month.value : undefined,
-            day: day ? day.value : undefined,
-            year: year ? year.value : undefined,
-        },
-        });
-        setTaxData(response.data);
-    } catch (error) {
-        console.error('Error fetching tax data:', error.response ? error.response.data : error.message);
-    }
-    };
-
-    fetchData();
-}, [month, day, year]);
+        const fetchData = async () => {
+          try {
+            const response = await axios.get(`${BASE_URL}/api/trust-fund-livestock-dev-fund-fees`, {
+              params: {
+                month: month?.value, // Optional chaining for cleaner and safer handling
+                day: day?.value,
+                year: year?.value,
+              },
+            });
+      
+            setTaxData(response.data);
+          } catch (error) {
+            console.error(
+              "Error fetching tax data:",
+              error.response?.data || error.message
+            );
+          }
+        };
+      
+        fetchData();
+      }, [month, day, year]); // Re-runs when any of these dependencies change
 
 useEffect(() => {
     if (month && year) {

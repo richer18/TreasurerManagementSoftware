@@ -25,6 +25,8 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from "xlsx";
 
 
+const BASE_URL = "http://192.168.101.108:3001";
+
   const months = [
     { label: 'January', value: '1' },
     { label: 'February', value: '2' },
@@ -64,31 +66,30 @@ function ReportTable({ onBack }) {
 useEffect(() => {
   const fetchData = async () => {
     try {
-      const response = await axios.get('http://192.168.101.108:3001/api/cedulaSummaryCollectionDataReport', {
+      const response = await axios.get(`${BASE_URL}/api/cedulaSummaryCollectionDataReport`, {
         params: { month: month.value, year: year.value },
       });
 
-      if (response.data.length > 0) {
-        // Fix calculation logic (case sensitivity issue fixed)
-        const filteredData = response.data.reduce(
-          (acc, row) => ({
-            TOTALAMOUNTPAID: acc.TOTALAMOUNTPAID + (row.Totalamountpaid || 0),
-          }),
-          { TOTALAMOUNTPAID: 0 }
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        // Summing the TOTALAMOUNTPAID while ensuring row values are valid
+        const totalAmountPaid = response.data.reduce(
+          (sum, row) => sum + (Number(row.Totalamountpaid) || 0),
+          0
         );
-        setData(filteredData);
+
+        setData({ TOTALAMOUNTPAID: totalAmountPaid });
       } else {
-        console.warn('No data available for selected month and year');
+        console.warn("No data available for the selected month and year");
         setData({ TOTALAMOUNTPAID: 0 });
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setData({ TOTALAMOUNTPAID: 0 });
     }
   };
 
   fetchData();
-}, [month, year]);
+}, [month, year]); // Dependency array ensures re-fetching when month/year changes
 
 
  // PDF Print Function

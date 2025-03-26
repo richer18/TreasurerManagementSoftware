@@ -32,7 +32,7 @@ import { IoToday } from "react-icons/io5";
 import { MdSummarize } from "react-icons/md";
 import * as XLSX from "xlsx";
 import RealPropertyTaxAbstract from '../../../../components/MD-Components/FillupForm/AbstractRPT';
-import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialog';
+import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialogRPT_FORM';
 import DailyTable from './TableData/DailyTable';
 import ReportTable from './TableData/ReportTable';
 import SummaryTable from './TableData/Summary';

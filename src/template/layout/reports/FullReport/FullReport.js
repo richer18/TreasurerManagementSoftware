@@ -25,7 +25,7 @@ import { useTheme } from '@mui/material/styles';
 import React, { useCallback, useEffect, useState } from 'react';
 
 
-
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
 
 function FullReport() {
   const [month, setMonth] = useState("1");
@@ -51,6 +51,7 @@ function FullReport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  
 
 const parseDate = (dateString) => {
   if (!dateString) return null;
@@ -66,24 +67,34 @@ const parseDate = (dateString) => {
 };
 
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch(
-          "http://192.168.101.108:3001/api/fetch-report"
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP status ${response.status}`);
-        }
-        const data = await response.json();
-        setData(data);
-      } catch (error) {
-        console.error("Fetching error:", error);
-        setData([]);
+useEffect(() => {
+  const controller = new AbortController(); // To cancel fetch on unmount
+  const signal = controller.signal;
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/fetch-report`, { signal });
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
       }
-    };
-    fetchData();
-  }, []);
+
+      const data = await response.json();
+      setData(data);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        console.log("Fetch aborted"); // Fetch cancelled (unmounted)
+      } else {
+        console.error("Error fetching data:", error);
+      }
+      setData([]);
+    }
+  };
+
+  fetchData();
+
+  return () => controller.abort(); // Cleanup function to cancel fetch
+}, []);
 
   const fetchData = async () => {
     if (!month || !year) {
@@ -96,7 +107,7 @@ const parseDate = (dateString) => {
 
     try {
       const response = await fetch(
-        `http://192.168.101.108:3001/api/fetch-report-json?month=${month}&year=${year}`
+        `${BASE_URL}/api/fetch-report-json?month=${month}&year=${year}`
       );
 
       if (!response.ok) {
@@ -144,46 +155,56 @@ const parseDate = (dateString) => {
   );
 
   const handleSaveClick = async (rowIndex) => {
-  const row = filteredData[rowIndex];
+    const controller = new AbortController(); // To allow request cancellation
+    const signal = controller.signal;
   
-  // Get ORIGINAL index from unfiltered data
-  const originalIndex = data.findIndex(item => item.date === row.date);
+    const row = filteredData[rowIndex];
   
-  // Convert date properly
-  const formattedDate = parseDate(row.date);
+    // Get ORIGINAL index from unfiltered data
+    const originalIndex = data.findIndex((item) => item.date === row.date);
   
-  // Get numeric value correctly
-  const dueFromValue = typeof updatedDueFrom[originalIndex] === 'number' 
-    ? updatedDueFrom[originalIndex] 
-    : row.dueFrom;
-
-  console.log("📤 Sending:", { 
-    date: formattedDate, 
-    dueFrom: dueFromValue, 
-    comment: comments[originalIndex] || "" 
-  });
-
-  try {
-    const response = await fetch("http://192.168.101.108:3001/api/update-report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: formattedDate,
-        dueFrom: dueFromValue, // Ensure correct value
-        comment: comments[rowIndex] || "",
-      }),
-    });
-
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Failed to update");
-
-    console.log("✅ Update successful:", result.message);
-    setShowButtons(false);
-    setEditableRow(null);
-  } catch (error) {
-    console.error("❌ Error updating:", error);
-  }
-};
+    // Convert date properly
+    const formattedDate = parseDate(row.date);
+  
+    // Get numeric value correctly
+    const dueFromValue =
+      typeof updatedDueFrom[originalIndex] === "number"
+        ? updatedDueFrom[originalIndex]
+        : row.dueFrom;
+  
+    const requestBody = {
+      date: formattedDate,
+      dueFrom: dueFromValue,
+      comment: comments[rowIndex] || "",
+    };
+  
+    console.log("📤 Sending Update:", requestBody);
+  
+    try {
+      const response = await fetch(`${BASE_URL}/api/update-report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+        signal, // Link fetch to AbortController
+      });
+  
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to update");
+  
+      console.log("✅ Update Successful:", result.message);
+      window.location.reload();
+      setShowButtons(false);
+      setEditableRow(null);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        console.warn("⚠️ Request Aborted");
+      } else {
+        console.error("❌ Error Updating:", error);
+      }
+    } finally {
+      controller.abort(); // Cleanup to avoid memory leaks
+    }
+  };
 
   const handleCommentChange = (rowIndex, value) => {
     setComments((prev) => ({
@@ -208,76 +229,165 @@ const parseDate = (dateString) => {
   //   setDialogOpen(true);
   // };
 
-  // Opens the dialog with the proper field and adjustment type (isAdding=true means "Under")
   const handleUnderClick = (index, field) => {
-    setDialogField(field);
-    setIsAdding(true); // "Under" means adding
-    setSelectedDate(filteredData[index].date); // Store selected row's date
-    setDialogOpen(true);
+  setDialogField(field);
+  setIsAdding(true); // "Under" means adding
+  setSelectedDate(filteredData[index].date); // Store selected row's date
+
+  // Get the current value based on the field
+  let currentValue = 0;
+  switch (field) {
+    case "ctc":
+      currentValue = filteredData[index]?.CTCunder || 0;
+      break;
+    case "rpt":
+      currentValue = filteredData[index]?.RPTunder || 0;
+      break;
+    case "gfAndTf":
+      currentValue = filteredData[index]?.GFTFunder || 0;
+      break;
+    default:
+      console.error("❌ Invalid field:", field);
+      return;
+  }
+
+  setDialogInputValue(currentValue); // Set initial value in input field
+  setDialogOpen(true);
+};
+
+// Opens the dialog with the proper field and adjustment type (isAdding=false means "Over")
+const handleOverClick = (index, field) => {
+  setDialogField(field);
+  setIsAdding(false); // "Over" means subtracting
+  setSelectedDate(filteredData[index].date);
+
+  // Get the current value based on the field
+  let currentValue = 0;
+  switch (field) {
+    case "ctc":
+      currentValue = filteredData[index]?.CTCover || 0;
+      break;
+    case "rpt":
+      currentValue = filteredData[index]?.RPTover || 0;
+      break;
+    case "gfAndTf":
+      currentValue = filteredData[index]?.GFTFover || 0;
+      break;
+    default:
+      console.error("❌ Invalid field:", field);
+      return;
+  }
+
+  setDialogInputValue(currentValue); // Set initial value in input field
+  setDialogOpen(true);
+};
+
+const formatDateToYYYYMMDD = (dateString) => {
+  if (!dateString || typeof dateString !== "string") {
+      console.error("❌ Invalid date input:", dateString);
+      return null;
+  }
+
+  // ✅ If already in YYYY-MM-DD format, return as is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString;
+  }
+
+  const months = {
+      Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06",
+      Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12"
   };
 
-  // Opens the dialog with the proper field and adjustment type (isAdding=false means "Over")
-  const handleOverClick = (index, field) => {
-    setDialogField(field);
-    setIsAdding(false); // "Over" means subtracting
-    setSelectedDate(filteredData[index].date);
-    setDialogOpen(true);
-  };
+  const parts = dateString.split(" ");
+  if (parts.length !== 3) {
+      console.error("❌ Invalid date format received:", dateString);
+      return null;
+  }
+
+  const month = months[parts[0]];
+  const day = parts[1].replace(",", "").padStart(2, "0"); // Remove comma and pad day
+  const year = parts[2];
+
+  if (!month || !day || !year) {
+      console.error("❌ Failed to parse date:", dateString);
+      return null;
+  }
+
+  return `${year}-${month}-${day}`; // Returns YYYY-MM-DD
+};
+
 
   // Confirm and apply changes from dialog
   const handleDialogConfirm = async () => {
-    const adjustedValue = parseFloat(dialogInputValue) || 0;
-    if (adjustedValue === 0) return;
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-    let columnToUpdate = "";
-    if (dialogField === "ctc") {
-      columnToUpdate = isAdding ? "CTCunder" : "CTCover";
-    } else if (dialogField === "rpt") {
-      columnToUpdate = isAdding ? "RPTunder" : "RPTover";
-    } else if (dialogField === "gfAndTf") {
-      columnToUpdate = isAdding ? "GFTFunder" : "GFTFover";
-    } else {
-      console.error("Invalid field:", dialogField);
-      return;
+    const adjustedValue = parseFloat(dialogInputValue);
+    if (isNaN(adjustedValue)) {
+        console.warn("⚠️ Invalid input, skipping update");
+        return;
     }
 
-    // Convert "MM-DD-YYYY" to "YYYY-MM-DD"
-    const [month, day, year] = selectedDate.split("-");
-    const formattedDate = `${year}-${month}-${day}`;
+    let columnToUpdate = "";
+    switch (dialogField) {
+        case "ctc":
+            columnToUpdate = isAdding ? "CTCunder" : "CTCover";
+            break;
+        case "rpt":
+            columnToUpdate = isAdding ? "RPTunder" : "RPTover";
+            break;
+        case "gfAndTf":
+            columnToUpdate = isAdding ? "GFTFunder" : "GFTFover";
+            break;
+        default:
+            console.error("❌ Invalid field:", dialogField);
+            return;
+    }
+
+    // ✅ Fix Date Conversion
+    const formattedDate = formatDateToYYYYMMDD(selectedDate);
+    if (!formattedDate) {
+        console.error("❌ Date conversion failed. Invalid date:", selectedDate);
+        alert("Invalid date format. Please select a valid date.");
+        return;
+    }
 
     const payload = {
-      date: formattedDate,
-      column: columnToUpdate,
-      value: adjustedValue,
+        date: formattedDate, // Correctly formatted date
+        column: columnToUpdate,
+        value: adjustedValue,
     };
 
     console.log("🚀 Sending payload:", payload);
 
     try {
-      const response = await fetch(
-        "http://localhost:3001/api/save-adjustment",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        const response = await fetch(`${BASE_URL}/api/save-adjustment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      alert("Adjustment saved successfully!");
+        console.log("✅ Adjustment saved successfully!");
+        alert("Adjustment saved successfully!");
     } catch (error) {
-      console.error("❌ Failed to save adjustment:", error);
-      alert("Failed to save adjustment.");
+        if (error.name === "AbortError") {
+            console.warn("⚠️ Request Aborted");
+        } else {
+            console.error("❌ Failed to save adjustment:", error);
+            alert("Failed to save adjustment.");
+        }
+    } finally {
+        controller.abort();
     }
 
     setDialogOpen(false);
     setDialogInputValue("");
-  };
-
-
+};
 
   // Handle manual input change in table fields
   const handleInputChange = (rowIndex, field, value) => {
@@ -424,81 +534,77 @@ const parseDate = (dateString) => {
                         year: "numeric",
                       }).format(new Date(row.date))}
                     </TableCell>
+     
+                   {/* Editable Value Cells */}
+                   {/* Editable Value Cells */}
+{["ctc", "rpt", "gfAndTf"].map((field) => (
+  <TableCell key={field} sx={{ textAlign: "center", position: "relative" }}>
+    {editingField?.row === index && editingField?.field === field ? (
+      <TextField
+        value={inputValues[`${index}-${field}`] || ""}
+        onChange={(e) => handleInputChange(index, field, e.target.value)}
+        size="small"
+        type="number"
+        sx={{
+          width: 100,
+          "& .MuiInputBase-input": {
+            fontWeight: 500,
+            textAlign: "center",
+            py: 0.5,
+          },
+        }}
+        autoFocus
+      />
+    ) : (
+      <>
+        <span style={{ fontWeight: 500 }}>{row[field].toLocaleString()}</span>
 
-                    {/* Editable Value Cells */}
-                    {["ctc", "rpt", "gfAndTf"].map((field) => (
-                      <TableCell
-                        key={field}
-                        sx={{ textAlign: "center", position: "relative" }}
-                      >
-                        {editingField?.row === index &&
-                        editingField?.field === field ? (
-                          <TextField
-                            value={inputValues[`${index}-${field}`] || ""}
-                            onChange={(e) =>
-                              handleInputChange(index, field, e.target.value)
-                            }
-                            size="small"
-                            type="number"
-                            sx={{
-                              width: 100,
-                              "& .MuiInputBase-input": {
-                                fontWeight: 500,
-                                textAlign: "center",
-                                py: 0.5,
-                              },
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <>
-                            <span style={{ fontWeight: 500 }}>
-                              {row[field].toLocaleString()}
-                            </span>
-                            <Tooltip title="View details">
-                              <ErrorIcon
-                                color="action"
-                                sx={{
-                                  fontSize: 16,
-                                  ml: 0.5,
-                                  verticalAlign: "text-top",
-                                }}
-                              />
-                            </Tooltip>
-                          </>
-                        )}
+        {/* Show Tooltip only if there is an adjustment */}
+        {(row.adjustments?.[field]?.under > 0 || row.adjustments?.[field]?.over > 0) && (
+          <Tooltip
+            title={`
+              ${row.adjustments[field].under > 0 ? `Under: ${row.adjustments[field].under.toLocaleString()}` : ""}
+              ${row.adjustments[field].over > 0 ? ` Over: ${row.adjustments[field].over.toLocaleString()}` : ""}
+            `}
+          >
+            <ErrorIcon
+              color="error"
+              sx={{
+                fontSize: 16,
+                ml: 0.5,
+                verticalAlign: "text-top",
+              }}
+            />
+          </Tooltip>
+        )}
+      </>
+    )}
 
-                        {editableRow === index && showButtons && (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              gap: 1,
-                              justifyContent: "center",
-                              mt: 1,
-                            }}
-                          >
-                            <Button
-                              variant="contained"
-                              color="success"
-                              size="small"
-                              onClick={() => handleUnderClick(index, field)}
-                              sx={{ minWidth: 80, textTransform: "none" }}
-                            >
-                              Under
-                            </Button>
-                            <Button
-                              variant="contained"
-                              color="error"
-                              size="small"
-                              onClick={() => handleOverClick(index, field)}
-                              sx={{ minWidth: 80, textTransform: "none" }}
-                            >
-                              Over
-                            </Button>
-                          </Box>
-                        )}
-                      </TableCell>
-                    ))}
+    {/* Show Buttons when row is editable */}
+    {editableRow === index && showButtons && (
+      <Box sx={{ display: "flex", gap: 1, justifyContent: "center", mt: 1 }}>
+        <Button
+          variant="contained"
+          color="success"
+          size="small"
+          onClick={() => handleUnderClick(index, field)}
+          sx={{ minWidth: 80, textTransform: "none" }}
+        >
+          Under
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          size="small"
+          onClick={() => handleOverClick(index, field)}
+          sx={{ minWidth: 80, textTransform: "none" }}
+        >
+          Over
+        </Button>
+      </Box>
+    )}
+  </TableCell>
+))}
 
                     {/* Due From Cell */}
                     <TableCell sx={{ textAlign: "center" }}>

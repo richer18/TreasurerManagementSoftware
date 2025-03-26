@@ -23,10 +23,8 @@ import LinearProgressWithLabel from '../../../template/layout/abstract/GeneralFu
 
 const Root = styled(Box)({
   padding: '30px',
-  backgroundColor: '#FFFFFFFF',
   borderRadius: '8px',
-  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-  overflow: 'visible',
+  overflow: "hidden",
 });
 
 const GridContainer = styled(Grid)({
@@ -38,13 +36,13 @@ const GridItem = styled(Grid)({
   marginBottom: '16px',
 });
 
-const Title = styled(Typography)({
-  textAlign: 'center',
-  marginBottom: '20px',
-  fontWeight: 'bold',
-  fontSize: '1.5rem',
-  color: 'black',
-});
+// const Title = styled(Typography)({
+//   textAlign: 'center',
+//   marginBottom: '20px',
+//   fontWeight: 'bold',
+//   fontSize: '1.5rem',
+//   color: 'black',
+// });
 
 const fieldOptions = [
   'Manufacturing', 'Distributor', 'Retailing', 'Financial', 'Other_Business_Tax', 'Sand_Gravel',
@@ -344,7 +342,7 @@ function AbstractGF({ data, mode }) {
 
   return (
     <Root>
-      <Title>General Fund Abstracts ({mode === 'edit' ? 'Edit' : 'Add'})</Title>
+      {/* <Title>General Fund Abstracts ({mode === 'edit' ? 'Edit' : 'Add'})</Title> */}
       <GridContainer container>
         <GridItem item xs={12}>
           <LocalizationProvider dateAdapter={AdapterDayjs}>

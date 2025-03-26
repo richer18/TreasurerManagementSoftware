@@ -1,5 +1,4 @@
 import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import PropTypes from "prop-types";
@@ -34,25 +33,14 @@ function PopupDialog({ onClose, children }) {
           padding: "12px 24px",
         }}
       >
-        Entry Form
-        
-      </DialogTitle>
-
-      <DialogContent sx={{ padding: "20px 24px" }}>{children}</DialogContent>
-
-      <DialogActions
-        sx={{
-          padding: "12px 24px",
-          display: "flex",
-          justifyContent: "flex-end",
-          backgroundColor: "#f5f5f5",
-          borderTop: "1px solid #ddd",
-        }}
-      >
+        Trust Fund Abstract Form
         <Button onClick={onClose} variant="contained" color="error">
           Close
         </Button>
-      </DialogActions>
+        
+      </DialogTitle>
+      <DialogContent sx={{ padding: "20px 24px" }}>{children}</DialogContent>
+      
     </Dialog>
   );
 }
