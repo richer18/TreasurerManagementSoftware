@@ -40,12 +40,6 @@ const dbConfigs = {
   database: 'psic_code'
 };
 
-const BASE_DIR = path.join(
-  "C:", "xampp", "htdocs", "TreasurerManagementSoftware",
-  "my-app", "src", "template", "layout", "reports", "FullReport", "components"
-);
-
-
 // Create a connection pool (more efficient for multiple queries)
 const db = mysql.createPool(dbConfig);
 const db2 = mysql.createPool(dbConfigs);
@@ -3740,139 +3734,87 @@ app.get('/api/CedulaDailyCollection', (req, res) => {
 });
 
 
-
-
-app.get('/api/fetch-report', (req, res) => {
+app.get("/api/fetch-report", (req, res) => {
   const sql = `
-    WITH cedula_data AS (
-        SELECT DATE(DATEISSUED) AS date, SUM(TOTALAMOUNTPAID) AS ctc_total
-        FROM cedula
-        GROUP BY DATE(DATEISSUED)
-    ),
-    real_property_tax_data_aggregated AS (
-        SELECT DATE(date) AS date, SUM(total) AS rpt_total
-        FROM real_property_tax_data
-        GROUP BY DATE(date)
-    ),
-    general_fund_data_aggregated AS (
-        SELECT DATE(date) AS date, SUM(total) AS general_fund_total
-        FROM general_fund_data
-        GROUP BY DATE(date)
-    ),
-    trust_fund_data_aggregated AS (
-        SELECT DATE(date) AS date, SUM(total) AS trust_fund_total
-        FROM trust_fund_data
-        GROUP BY DATE(date)
-    ),
-    combined_ctc_and_rpt AS (
-        SELECT c.date AS report_date, c.ctc_total, r.rpt_total
-        FROM cedula_data c
-        LEFT JOIN real_property_tax_data_aggregated r ON c.date = r.date
-
-        UNION ALL
-
-        SELECT r.date AS report_date, NULL AS ctc_total, r.rpt_total
-        FROM real_property_tax_data_aggregated r
-        LEFT JOIN cedula_data c ON c.date = r.date
-        WHERE c.date IS NULL
-    ),
-    combined_all_data AS (
-        SELECT cr.report_date, cr.ctc_total, cr.rpt_total, gf.general_fund_total, tf.trust_fund_total,
-               COALESCE(gf.general_fund_total, 0) + COALESCE(tf.trust_fund_total, 0) AS gf_and_tf_total
-        FROM combined_ctc_and_rpt cr
-        LEFT JOIN general_fund_data_aggregated gf ON cr.report_date = gf.date
-        LEFT JOIN trust_fund_data_aggregated tf ON cr.report_date = tf.date
-
-        UNION ALL
-
-        SELECT gf.date AS report_date, NULL AS ctc_total, NULL AS rpt_total, gf.general_fund_total, NULL AS trust_fund_total, gf.general_fund_total AS gf_and_tf_total
-        FROM general_fund_data_aggregated gf
-        LEFT JOIN combined_ctc_and_rpt cr ON cr.report_date = gf.date
-        WHERE cr.report_date IS NULL
-
-        UNION ALL
-
-        SELECT tf.date AS report_date, NULL AS ctc_total, NULL AS rpt_total, NULL AS general_fund_total, tf.trust_fund_total, tf.trust_fund_total AS gf_and_tf_total
-        FROM trust_fund_data_aggregated tf
-        LEFT JOIN combined_ctc_and_rpt cr ON cr.report_date = tf.date
-        WHERE cr.report_date IS NULL
-    )
-    SELECT report_date AS "date",
-           COALESCE(ctc_total, 0) AS "ctc",
-           COALESCE(rpt_total, 0) AS "rpt",
-           COALESCE(general_fund_total, 0) AS "GF",
-           COALESCE(trust_fund_total, 0) AS "TF",
-           COALESCE(gf_and_tf_total, 0) AS "gfAndTf",
-           0 AS "dueFrom",
-           COALESCE(ctc_total, 0) + COALESCE(rpt_total, 0) + COALESCE(gf_and_tf_total, 0) AS "rcdTotal",
-           NULL AS "comment",
-           NULL AS "under",
-           NULL AS "over"
-    FROM combined_all_data
-    ORDER BY report_date;
+    SELECT
+    DATE_FORMAT(date, '%Y-%m-%d') AS "date",
+    COALESCE(ctc, 0) AS "ctc",
+    COALESCE(rpt, 0) AS "rpt",
+    COALESCE(GF, 0) AS "GF",
+    COALESCE(TF, 0) AS "TF",
+    COALESCE(gfAndTf, 0) AS "gfAndTf",
+    COALESCE(dueFrom, 0) AS "dueFrom",  -- ✅ Get from database instead of setting 0
+    COALESCE(rcdTotal, 0) AS "rcdTotal",
+    COALESCE(comment, '') AS "comment", -- ✅ Ensure no NULL values, set empty string instead
+    COALESCE(CTCunder, 0) AS "CTCunder",
+    COALESCE(CTCover, 0) AS "CTCover",
+    COALESCE(RPTunder, 0) AS "RPTunder",
+    COALESCE(RPTover, 0) AS "RPTover",
+    COALESCE(GFTFunder, 0) AS "GFTFunder",
+    COALESCE(GFTFover, 0) AS "GFTFover"
+    FROM full_report_rcd
+    ORDER BY date;
   `;
 
   db.query(sql, (err, results) => {
     if (err) {
-      console.error('Error fetching data:', err);
-      res.status(500).send('Error fetching data');
+      console.error("❌ Error fetching data:", err);
+      res.status(500).send("Error fetching data");
       return;
     }
 
-    // ✅ Convert date format to "January 2, 2025"
-    const resultsFormatted = results.map(row => {
-      const dateObj = new Date(row.date);
-      const formattedDate = dateObj.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+    // ✅ Convert "YYYY-MM-DD" → "MM-DD-YYYY" before sending to frontend
+    const resultsFormatted = results.map((row) => {
+      if (!row.date) {
+        console.warn("⚠️ Missing date for row:", row);
+        return { ...row, date: "Unknown Date" }; // Fallback
+      }
+
+      // ✅ Convert "YYYY-MM-DD" to "MM-DD-YYYY"
+      const [year, month, day] = row.date.split("-");
+      const formattedDate = `${month}-${day}-${year}`;
 
       return {
         ...row,
-        date: formattedDate // Replace with formatted date
+        date: formattedDate, // ✅ Send formatted date to frontend
       };
     });
 
-    // ✅ Save formatted data to JSON
-    const baseDir = path.join(
-      'C:', 'xampp', 'htdocs', 'TreasurerManagementSoftware', 'my-app',
-      'src', 'template', 'layout', 'reports', 'FullReport', 'components'
-    );
-
-    const groupedResults = resultsFormatted.reduce((acc, row) => {
-      const date = new Date(row.date);
-      const year = date.getFullYear(); 
-      const month = date.toLocaleString('default', { month: 'long' }).toUpperCase();
-
-      if (!acc[year]) acc[year] = {};
-      if (!acc[year][month]) acc[year][month] = [];
-      acc[year][month].push(row);
-
-      return acc;
-    }, {});
-
-    Object.keys(groupedResults).forEach(year => {
-      const yearDir = path.join(baseDir, year);
-      if (!fs.existsSync(yearDir)) fs.mkdirSync(yearDir, { recursive: true });
-
-      Object.keys(groupedResults[year]).forEach(month => {
-        const monthDir = path.join(yearDir, month);
-        const filePath = path.join(monthDir, 'data.json');
-        if (!fs.existsSync(monthDir)) fs.mkdirSync(monthDir, { recursive: true });
-
-        try {
-          fs.writeFileSync(filePath, JSON.stringify(groupedResults[year][month], null, 2));
-          console.log(`File created: ${filePath}`);
-        } catch (err) {
-          console.error(`Error writing file (${filePath}):`, err);
-        }
-      });
-    });
-
-    res.json(resultsFormatted); // Send formatted data
+    res.json(resultsFormatted);
   });
 });
+
+app.post("/api/update-report", (req, res) => {
+  console.log("🔹 Request received:", req.body);
+
+  const { date, dueFrom, comment } = req.body;
+  if (!date) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const sql = `
+    UPDATE full_report_rcd
+    SET dueFrom = ?, comment = ?
+    WHERE date = ?;
+  `;
+
+  db.query(sql, [dueFrom || 0, comment || "", date], (err, result) => {
+    if (err) {
+      console.error("❌ Database error:", err);
+      return res.status(500).json({ error: "Database update failed" });
+    }
+
+    if (result.affectedRows === 0) {
+      console.warn("⚠️ No record found for the given date:", date);
+      return res
+        .status(404)
+        .json({ error: "No record found for the given date" });
+    }
+
+    res.json({ success: true, message: "Record updated successfully" });
+  });
+});
+
 
 
 app.get('/api/viewDailyCollectionDetailsCedula', (req, res) => {
@@ -3972,45 +3914,24 @@ app.get("/api/fetch-report-json", async (req, res) => {
 });
 
 // API to Update Report JSON
-app.post("/api/save-adjustment", async (req, res) => {
-  const { year, month, date, field, value, adjustmentType } = req.body;
+app.post("/api/save-adjustment", (req, res) => {
+  const { date, column, value } = req.body;
 
-  if (!year || !month || !date || !field || value === undefined) {
-    return res.status(400).json({ error: "Invalid data provided." });
+  if (!date || !column || value === undefined) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
-  // Construct the file path
-  const filePath = path.join(BASE_DIR, year.toString(), month.toUpperCase(), "data.json");
+  const sql = `UPDATE full_report_rcd SET ${column} = ${column} + ? WHERE date = ?`;
 
-  try {
-    let reportData = [];
-
-    // Read existing data.json
-    if (fs.existsSync(filePath)) {
-      const existingData = fs.readFileSync(filePath, "utf8");
-      reportData = JSON.parse(existingData);
+  db.query(sql, [value, date], (err, result) => {
+    if (err) {
+      console.error("❌ Database error:", err);
+      return res.status(500).json({ error: "Database error" });
     }
 
-    // Find the row by date
-    const rowIndex = reportData.findIndex((item) => item.date === date);
-    if (rowIndex === -1) {
-      return res.status(404).json({ error: "Row not found in JSON." });
-    }
-
-    // Update the field (ctc, rpt, etc.)
-    reportData[rowIndex][field] = (reportData[rowIndex][field] || 0) + value;
-    
-    // Update the under/over field
-    reportData[rowIndex][adjustmentType] = (reportData[rowIndex][adjustmentType] || 0) + Math.abs(value);
-
-    // Write back the updated data to the file
-    fs.writeFileSync(filePath, JSON.stringify(reportData, null, 2));
-
-    res.json({ message: "Adjustment saved successfully!", updatedData: reportData[rowIndex] });
-  } catch (err) {
-    console.error("Error saving adjustment:", err);
-    res.status(500).json({ error: "Failed to save adjustment." });
-  }
+    console.log(`✅ Updated ${column} for date ${date} by ${value}`);
+    res.json({ success: true, message: "Adjustment saved successfully!" });
+  });
 });
 
 
