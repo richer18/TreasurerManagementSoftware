@@ -83,22 +83,22 @@ const initialFormData = {
   date: '',
   barangay: '',
   cashier: '',
-  currentYear: '',
-  currentPenalties: '',
-  currentDiscounts: '',
-  prevYear: '',
-  prevPenalties: '',
-  priorYears: '',
-  priorPenalties: '',
+  currentYear: 0,
+  currentPenalties: 0,
+  currentDiscounts: 0,
+  prevYear: 0,
+  prevPenalties: 0,
+  priorYears: 0,
+  priorPenalties: 0,
   total: 0,
   share: 0,
-  additionalCurrentYear: '',
-  additionalCurrentPenalties: '',
-  additionalCurrentDiscounts: '',
-  additionalPrevYear: '',
-  additionalPrevPenalties: '',
-  additionalPriorYears: '',
-  additionalPriorPenalties: '',
+  additionalCurrentYear: 0,
+  additionalCurrentPenalties: 0,
+  additionalCurrentDiscounts: 0,
+  additionalPrevYear: 0,
+  additionalPrevPenalties: 0,
+  additionalPriorYears: 0,
+  additionalPriorPenalties: 0,
   additionalTotal: 0,
   gfTotal: 0,
   name: '',
@@ -120,7 +120,7 @@ function LinearProgressWithLabel({ value }) {
   );
 }
 
-function AbstractRPT({ data, onSave, onClose }) {
+function AbstractRPT({ data, onSave }) {
   const [formData, setFormData] = useState(data || initialFormData);
 
   const [showProgress, setShowProgress] = useState(false); // Progress visibility
@@ -141,6 +141,8 @@ function AbstractRPT({ data, onSave, onClose }) {
   };
 
   useEffect(() => {
+    console.log("Received data for edit:", data); // Debugging
+
     if (data) {
       const updatedFormData = {
         ...initialFormData, // Ensures all fields are present
@@ -152,6 +154,13 @@ function AbstractRPT({ data, onSave, onClose }) {
       setFormData(initialFormData);
     }
   }, [data]);
+
+  React.useEffect(() => {
+    console.log("Received data in AbstractRPT:", data);
+    if (data) {
+      setFormData({ ...initialFormData, ...data }); // Merge missing fields
+    }
+  }, [data]); // ✅ Now it's correctly inside AbstractRPT
 
   const [errors, setErrors] = useState({
     date: '',
@@ -181,32 +190,31 @@ function AbstractRPT({ data, onSave, onClose }) {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.date) newErrors.date = 'Date is required';
-    if (!formData.name) newErrors.name = 'Name of Taxpayer is required';
-    if (!formData.receipt) newErrors.receipt = 'Receipt No. P.F. No. 25(A) is required';
-    if (!formData.currentYear) newErrors.currentYear = 'Current Year is required';
-    if (!formData.currentPenalties) newErrors.currentPenalties = 'Penalties are required';
-    if (!formData.currentDiscounts) newErrors.currentDiscounts = 'Discounts are required';
-    if (!formData.prevYear) newErrors.prevYear = 'Immediate Preceding Year is required';
-    if (!formData.prevPenalties) newErrors.prevPenalties = 'Penalties are required';
-    if (!formData.priorYears) newErrors.priorYears = 'Prior Years is required';
-    if (!formData.priorPenalties) newErrors.priorPenalties = 'Penalties are required';
-    if (!formData.barangay) newErrors.barangay = 'Barangay is required';
-    if (!formData.share) newErrors.share = '25% Share is required';
-    if (!formData.additionalCurrentYear) newErrors.additionalCurrentYear = 'Additional Current Year is required';
-    if (!formData.additionalCurrentPenalties) newErrors.additionalCurrentPenalties = 'Additional Penalties are required';
-    if (!formData.additionalCurrentDiscounts) newErrors.additionalCurrentDiscounts = 'Additional Discounts are required';
-    if (!formData.additionalPrevYear) newErrors.additionalPrevYear = 'Additional Immediate Preceding Year is required';
-    if (!formData.additionalPrevPenalties) newErrors.additionalPrevPenalties = 'Additional Penalties are required';
-    if (!formData.additionalPriorYears) newErrors.additionalPriorYears = 'Additional Prior Years is required';
-    if (!formData.additionalPriorPenalties) newErrors.additionalPriorPenalties = 'Additional Penalties are required';
-    if (!formData.additionalTotal) newErrors.additionalTotal = 'Additional Total is required';
-    if (!formData.gfTotal) newErrors.gfTotal = 'GF and SEF is required';
-    if (!formData.status) newErrors.status = 'Status is required';
-    if (!formData.cashier) newErrors.cashier = 'Cashier is required';
+
+    // Convert falsy but valid values (like "0") to a valid check
+    if (formData.currentPenalties === "" || formData.currentPenalties === null) 
+        newErrors.currentPenalties = "Penalties are required";
+
+    if (formData.prevYear === "" || formData.prevYear === null) 
+        newErrors.prevYear = "Immediate Preceding Year is required";
+
+    if (formData.prevPenalties === "" || formData.prevPenalties === null) 
+        newErrors.prevPenalties = "Penalties are required";
+
+    if (formData.priorYears === "" || formData.priorYears === null) 
+        newErrors.priorYears = "Prior Years is required";
+
+    if (formData.priorPenalties === "" || formData.priorPenalties === null) 
+        newErrors.priorPenalties = "Penalties are required";
+
+    // Log formData to debug what's being checked
+    console.log("formData before validation:", formData);
+
     setErrors(newErrors);
+
     return Object.keys(newErrors).length === 0;
-  };
+};
+
 
   useEffect(() => {
     const fetchListings = async () => {
@@ -271,14 +279,11 @@ const handleReset = () => {
     setShowProgress(true);
     simulateProgress();
   
-    const newEntry = createData({
-      date: formData.date,
-      ...formData,
-    });
+    const newEntry = createData({ ...formData });
   
     try {
       let response;
-      const baseUrl = "http://192.168.101.108:3001/api";
+      const baseUrl = "http://localhost:3001/api";
   
       if (formData.id) {
         // Update logic
@@ -293,12 +298,16 @@ const handleReset = () => {
       }
   
       setProgress(100);
-      setTimeout(() => setShowProgress(false), 500);
-      onSave(newEntry);
-  
-      // Refresh the page after a slight delay
       setTimeout(() => {
-        window.location.reload();
+        setShowProgress(false);
+        onSave(newEntry); // Call onSave only after progress bar finishes
+      }, 500);
+  
+      // Instead of reloading the page, you should update the state
+      setTimeout(() => {
+        // Example: Fetch new data instead of reloading
+        // fetchData();
+        window.location.reload(); // If necessary
       }, 1000);
     } catch (error) {
       console.error("Error saving data:", error);
@@ -310,28 +319,38 @@ const handleReset = () => {
 
 
 const handleFormDataChange = (event) => {
-    const { name, value } = event.target;
+  const { name, value } = event.target;
 
-    const additionalFieldNameMap = {
-      currentYear: 'additionalCurrentYear',
-      currentPenalties: 'additionalCurrentPenalties',
-      currentDiscounts: 'additionalCurrentDiscounts',
-      prevYear: 'additionalPrevYear',
-      prevPenalties: 'additionalPrevPenalties',
-      priorYears: 'additionalPriorYears',
-      priorPenalties: 'additionalPriorPenalties',
-    };
-
-    setFormData((prevData) => {
-      const newState = { ...prevData, [name]: value };
-
-      if (additionalFieldNameMap[name]) {
-        newState[additionalFieldNameMap[name]] = value;
-      }
-
-      return newState;
-    });
+  const additionalFieldNameMap = {
+    currentYear: 'additionalCurrentYear',
+    currentPenalties: 'additionalCurrentPenalties',
+    currentDiscounts: 'additionalCurrentDiscounts',
+    prevYear: 'additionalPrevYear',
+    prevPenalties: 'additionalPrevPenalties',
+    priorYears: 'additionalPriorYears',
+    priorPenalties: 'additionalPriorPenalties',
   };
+
+  setFormData((prevData) => {
+    const isNumericField = [
+      'currentYear', 'currentPenalties', 'currentDiscounts', 'prevYear',
+      'prevPenalties', 'priorYears', 'priorPenalties', 'total', 'share',
+      'additionalCurrentYear', 'additionalCurrentPenalties', 'additionalCurrentDiscounts',
+      'additionalPrevYear', 'additionalPrevPenalties', 'additionalPriorYears',
+      'additionalPriorPenalties', 'additionalTotal', 'gfTotal'
+    ].includes(name);
+
+    const newValue = isNumericField ? (parseFloat(value) || 0) : value;
+
+    const newState = { ...prevData, [name]: newValue };
+
+    if (additionalFieldNameMap[name]) {
+      newState[additionalFieldNameMap[name]] = newValue;
+    }
+
+    return newState;
+  });
+};
 
 
 
@@ -564,6 +583,7 @@ const handleFormDataChange = (event) => {
               type="number"
               fullWidth
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -585,6 +605,7 @@ const handleFormDataChange = (event) => {
               value={formData.additionalCurrentYear}
               onChange={handleFormDataChange}
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -606,6 +627,7 @@ const handleFormDataChange = (event) => {
               value={formData.additionalCurrentPenalties}
               onChange={handleFormDataChange}
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -626,6 +648,7 @@ const handleFormDataChange = (event) => {
               value={formData.additionalCurrentDiscounts}
               onChange={handleFormDataChange}
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -646,6 +669,7 @@ const handleFormDataChange = (event) => {
               value={formData.additionalPrevYear}
               onChange={handleFormDataChange}
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -666,6 +690,7 @@ const handleFormDataChange = (event) => {
               value={formData.additionalPrevPenalties}
               onChange={handleFormDataChange}
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -686,6 +711,7 @@ const handleFormDataChange = (event) => {
               value={formData.additionalPriorYears}
               onChange={handleFormDataChange}
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -706,6 +732,7 @@ const handleFormDataChange = (event) => {
               value={formData.additionalPriorPenalties}
               onChange={handleFormDataChange}
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -724,6 +751,7 @@ const handleFormDataChange = (event) => {
               fullWidth
               name="additionalTotal"
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -741,6 +769,7 @@ const handleFormDataChange = (event) => {
               label="GF and SEF"
               fullWidth
               InputProps={{
+                readOnly: true, // Prevents user input
                 inputProps: { step: "any" },
                 sx: {
                   'input::-webkit-outer-spin-button, input::-webkit-inner-spin-button': {
@@ -819,7 +848,6 @@ const handleFormDataChange = (event) => {
 AbstractRPT.propTypes = {
   data: PropTypes.object,
   onSave: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired,
 };
 
 export default AbstractRPT;

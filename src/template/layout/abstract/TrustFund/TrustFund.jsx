@@ -2,7 +2,7 @@ import { keyframes } from "@emotion/react";
 import SearchIcon from "@mui/icons-material/Search";
 import {
   Autocomplete,
-  Box,
+  Box,Dialog,DialogActions,DialogContentText,DialogTitle,DialogContent,
   Button,
   Card,
   InputAdornment,
@@ -112,7 +112,7 @@ const years = [
   { label: "2029", value: "2029" },
 ];
 
-const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+const BASE_URL = "http://localhost:3001"; // Define base URL
 
 function TrustFund() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -129,6 +129,11 @@ function TrustFund() {
   const [openZF, setOpenZF] = useState(false);
   const [openLDF, setOpenLDF] = useState(false);
   const [openTOTAL, setOpenTOTAL] = useState(false);
+
+   const [rows, setRows] = React.useState([]);
+    const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+    const [selectedId, setSelectedId] = useState(null);
+  
 
   const [buildingPermitFee, setBuildingPermitFee] = useState(0);
   const [electricalFee, setElectricalFee] = useState(0);
@@ -441,6 +446,31 @@ function TrustFund() {
     setShowMainTable(false);
     setShowDailyTable(false);
     setShowFilters(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedId) return;
+    
+    try {
+      const response = await fetch(`/api/deleteTF/${selectedId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Record deleted successfully");
+        setRows(prev => prev.filter(row => row.id !== selectedId));
+      } else {
+        alert(result.error || "Failed to delete record");
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      alert("Error deleting record");
+    } finally {
+      setOpenDeleteDialog(false);
+      setSelectedId(null);
+    }
   };
 
   const handleDownload = () => {
@@ -786,9 +816,15 @@ function TrustFund() {
                       >
                         <MenuItem onClick={handleViewClick}>View</MenuItem>
                         <MenuItem onClick={handleEditClick}>Edit</MenuItem>
-                        <MenuItem onClick={() => console.log("Delete")}>
-                          Delete
-                        </MenuItem>
+                        <MenuItem 
+                                        onClick={(e) => {
+                                          e.stopPropagation(); // Prevent event propagation
+                                          setSelectedId(rows.id);
+                                          setOpenDeleteDialog(true);
+                                        }}
+                                      >
+                                        Delete
+                                      </MenuItem>
                       </Menu>
                     </TableCell>
                   </TableRow>
@@ -813,6 +849,36 @@ function TrustFund() {
           </Box>
         </TableContainer>
       )}
+
+       {/* Confirmation Dialog */}
+            <Dialog
+                    open={openDeleteDialog}
+                    onClose={() => setOpenDeleteDialog(false)}
+                    maxWidth="xs"
+                    fullWidth
+                  >
+                    <DialogTitle>Confirm Delete</DialogTitle>
+                    <DialogContent>
+                      <DialogContentText>
+                        Are you sure you want to delete this record? This action cannot be undone.
+                      </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                      <Button 
+                        onClick={() => setOpenDeleteDialog(false)}
+                        color="primary"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleConfirmDelete}
+                        color="error"
+                        variant="contained"
+                      >
+                        Confirm Delete
+                      </Button>
+                    </DialogActions>
+                  </Dialog>
 
       {isDialogOpen && (
         <PopupDialog open={isDialogOpen} onClose={handleClose}>

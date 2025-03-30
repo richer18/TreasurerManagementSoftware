@@ -42,7 +42,7 @@ const years = [
   { label: '2027', value: '2027' },
 ];
 
-
+const BASE_URL = "http://localhost:3001";
 
 
 function ReportTable({ onBack }) {
@@ -99,103 +99,66 @@ const formatCurrency = (value) => {
 };
   
  
-    // Fetch data from all APIs on component mount
-  useEffect(() => {
-    // Define all API endpoints with their identification keys
-    const apiEndpoints = [
-      {
-        key: "LandSharingData",
-        url: "http://192.168.101.108:3001/api/LandSharingData",
-      },
-      {
-        key: "sefLandSharingData",
-        url: "http://192.168.101.108:3001/api/sefLandSharingData",
-      },
-      {
-        key: "buildingSharingData",
-        url: "http://192.168.101.108:3001/api/buildingSharingData",
-      },
-      {
-        key: "sefBuildingSharingData",
-        url: "http://192.168.101.108:3001/api/sefBuildingSharingData",
-      },
-    ];
+useEffect(() => {
+  // Define all API endpoints with their identification keys
+  const apiEndpoints = [
+    { key: "LandSharingData", url: `${BASE_URL}/api/LandSharingData` },
+    { key: "sefLandSharingData", url: `${BASE_URL}/api/sefLandSharingData` },
+    { key: "buildingSharingData", url: `${BASE_URL}/api/buildingSharingData` },
+    { key: "sefBuildingSharingData", url: `${BASE_URL}/api/sefBuildingSharingData` },
+  ];
 
-    // Create an array of axios GET requests
-    const requests = apiEndpoints.map(api => axios.get(api.url));
+  // Fetch all data concurrently
+  const fetchAllData = async () => {
+    try {
+      const responses = await Promise.all(
+        apiEndpoints.map((api) => axios.get(api.url))
+      );
 
-    // Use Promise.all to fetch all data concurrently
-    Promise.all(requests)
-      .then(responses => {
-        // Initialize updatedSharingData without referencing current state
-        const updatedSharingData = {
-          LandSharingData: {
+      // Initialize updatedSharingData
+      const updatedSharingData = Object.fromEntries(
+        apiEndpoints.map(({ key }) => [
+          key,
+          {
             Current: { ...defaultFields },
             Prior: { ...defaultFields },
             Penalties: { ...defaultFields },
             TOTAL: { ...defaultFields },
           },
-          sefLandSharingData: {
-            Current: { ...defaultFields },
-            Prior: { ...defaultFields },
-            Penalties: { ...defaultFields },
-            TOTAL: { ...defaultFields },
-          },
-          buildingSharingData: {
-            Current: { ...defaultFields },
-            Prior: { ...defaultFields },
-            Penalties: { ...defaultFields },
-            TOTAL: { ...defaultFields },
-          },
-          sefBuildingSharingData: {
-            Current: { ...defaultFields },
-            Prior: { ...defaultFields },
-            Penalties: { ...defaultFields },
-            TOTAL: { ...defaultFields },
-          },
-        };
+        ])
+      );
 
-        responses.forEach((response, index) => {
-          const apiKey = apiEndpoints[index].key;
-          const data = response.data;
+      responses.forEach((response, index) => {
+        const apiKey = apiEndpoints[index].key;
+        const data = response.data;
 
-          // Ensure the data is an array
-          if (Array.isArray(data)) {
-            data.forEach(item => {
-              switch (item.category) {
-                case 'Current':
-                  // Merge defaultFields with the fetched item
-                  updatedSharingData[apiKey].Current = { ...defaultFields, ...item };
-                  break;
-                case 'Prior':
-                  updatedSharingData[apiKey].Prior = { ...defaultFields, ...item };
-                  break;
-                case 'Penalties':
-                  updatedSharingData[apiKey].Penalties = { ...defaultFields, ...item };
-                  break;
-                case 'TOTAL':
-                  updatedSharingData[apiKey].TOTAL = { ...defaultFields, ...item };
-                  break;
-                default:
-                  console.warn(`Unexpected category: ${item.category} in ${apiKey}`);
-                  break;
-              }
-            });
+        // Ensure the data is an array
+        if (!Array.isArray(data)) {
+          console.error(`Invalid data format for ${apiKey}: Expected an array.`);
+          return;
+        }
+
+        data.forEach((item) => {
+          if (updatedSharingData[apiKey]?.[item.category]) {
+            updatedSharingData[apiKey][item.category] = {
+              ...defaultFields,
+              ...item,
+            };
           } else {
-            console.error(`Invalid data format for ${apiKey}: Expected an array.`);
+            console.warn(`Unexpected category: ${item.category} in ${apiKey}`);
           }
         });
-
-        // Update the state with all fetched data
-        setSharingData(updatedSharingData);
-        // setIsLoading(false);
-      })
-      .catch(err => {
-        console.error('Error fetching sharing data:', err);
-        // setError('Failed to fetch data.');
-        // setIsLoading(false);
       });
-  }, [defaultFields]); // Include defaultFields in the dependency array // Empty dependency array ensures this runs once on mount
+
+      // Update the state with fetched data
+      setSharingData(updatedSharingData);
+    } catch (err) {
+      console.error("Error fetching sharing data:", err);
+    }
+  };
+
+  fetchAllData();
+}, [defaultFields]); // Ensure `defaultFields` is stable
 
   const handleMonthChange = (event, value) => {
     setMonth(value || { label: 'January', value: '1' });

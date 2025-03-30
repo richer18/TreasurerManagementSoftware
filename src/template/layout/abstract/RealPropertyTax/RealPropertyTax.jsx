@@ -1,13 +1,13 @@
 import { keyframes } from '@emotion/react';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+// import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+// import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import SearchIcon from '@mui/icons-material/Search';
 import { Autocomplete, Card, TextField, Tooltip } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Collapse from '@mui/material/Collapse';
-import IconButton from '@mui/material/IconButton';
+// import Collapse from '@mui/material/Collapse';
+// import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -31,11 +31,19 @@ import { IoMdAdd, IoMdDownload } from "react-icons/io";
 import { IoToday } from "react-icons/io5";
 import { MdSummarize } from "react-icons/md";
 import * as XLSX from "xlsx";
+import { format, parseISO } from 'date-fns';
 import RealPropertyTaxAbstract from '../../../../components/MD-Components/FillupForm/AbstractRPT';
 import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialogRPT_FORM';
+import PopupDialogView from '../../../../components/MD-Components/Popup/PopupDialogRPT_FORM';
 import DailyTable from './TableData/DailyTable';
 import ReportTable from './TableData/ReportTable';
 import SummaryTable from './TableData/Summary';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,DialogContentText
+} from "@mui/material";
 
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -99,46 +107,152 @@ const formatDate = (dateString) => {
   });
 };
 
-function Row(props) {
-  const { row } = props;
-  const [open, setOpen] = React.useState(false);
+const baseUrl = "http://localhost:3001/api";
+
+const initialFormData = {
+  date: '',
+  barangay: '',
+  cashier: '',
+  currentYear: '',
+  currentPenalties: '',
+  currentDiscounts: '',
+  prevYear: '',
+  prevPenalties: '',
+  priorYears: '',
+  priorPenalties: '',
+  total: 0,
+  share: 0,
+  additionalCurrentYear: '',
+  additionalCurrentPenalties: '',
+  additionalCurrentDiscounts: '',
+  additionalPrevYear: '',
+  additionalPrevPenalties: '',
+  additionalPriorYears: '',
+  additionalPriorPenalties: '',
+  additionalTotal: 0,
+  gfTotal: 0,
+  name: '',
+  receipt: '',
+  status: '',
+};
+
+function Row({ row }) {
+  // 🟢 State Management
   const [anchorEl, setAnchorEl] = React.useState(null);
+  const [selectedRow, setSelectedRow] = React.useState(null);
 
-  const handleMenuClick = (event) => {
-    setAnchorEl(event.currentTarget);
+  const [selectedRowView, setSelectedRowView] = React.useState(null);
+  // const [openDialog, setOpenDialog] = React.useState(false);
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+
+  const [rows, setRows] = React.useState([]);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [openDialogView, setOpenDialogView] = React.useState(false);
+
+  // 🟢 Menu Handlers
+  const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
+
+
+
+  // 🟢 View Dialog Handlers
+  const handleView = (row) => {
+    setSelectedRowView(row);
+    setOpenDialogView(true);
+    handleMenuClose();
+  };
+  
+
+  const handleClose = () => {
+    setOpenDialogView(false);
+    setSelectedRowView(null);
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleView = () => {
-    // Implement view action
+  // 🟢 Edit Dialog Handlers
+  const handleEdit = (row) => {
+    // ✅ Convert ISO date to yyyy-MM-dd format
+    const formattedDate = format(parseISO(row.date), 'yyyy-MM-dd');
+  
+    // ✅ Map snake_case keys to camelCase keys
+    const formattedRow = {
+      id: row.id,
+      date: formattedDate,
+      barangay: row.barangay,
+      cashier: row.cashier,
+      currentYear: row.current_year,
+      currentPenalties: row.current_penalties,
+      currentDiscounts: row.current_discounts,
+      prevYear: row.prev_year,
+      prevPenalties: row.prev_penalties,
+      priorYears: row.prior_years,
+      priorPenalties: row.prior_penalties,
+      total: row.total,
+      share: row.share,
+      additionalCurrentYear: row.additional_current_year,
+      additionalCurrentPenalties: row.additional_penalties,
+      additionalCurrentDiscounts: row.additional_discounts,
+      additionalPrevYear: row.additional_prev_year,
+      additionalPrevPenalties: row.additional_prev_penalties,
+      additionalPriorYears: row.additional_prior_years,
+      additionalPriorPenalties: row.additional_prior_penalties,
+      additionalTotal: row.additional_total,
+      gfTotal: row.gf_total,
+      name: row.name,
+      receipt: row.receipt_no, // ✅ Match `receipt_no` to `receipt`
+      status: row.status,
+      comments: row.comments,
+    };
+  
+    console.log("Formatted Row for Edit:", formattedRow); // Debugging
+  
+    setSelectedRow(formattedRow);
+    setEditDialogOpen(true);
     handleMenuClose();
   };
 
-  const handleEdit = () => {
-    // Implement edit action
-    handleMenuClose();
+  const handleCloseEdit = () => {
+    setEditDialogOpen(false);
+    setSelectedRow(null);
   };
 
-  const handleDelete = () => {
-    // Implement delete action
-    handleMenuClose();
+  const handleUpdate = (updatedData) => {
+    console.log("Updated Data:", updatedData);
+    setEditDialogOpen(false);
   };
+
+  // 🟢 Delete Function
+  // Delete handler
+  const handleConfirmDelete = async () => {
+    if (!selectedId) return;
+    
+    try {
+      const response = await fetch(`/api/deleteRPT/${selectedId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Record deleted successfully");
+        setRows(prev => prev.filter(row => row.id !== selectedId));
+      } else {
+        alert(result.error || "Failed to delete record");
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      alert("Error deleting record");
+    } finally {
+      setOpenDeleteDialog(false);
+      setSelectedId(null);
+    }
+  };
+
 
   return (
     <>
+      {/* 🟢 Table Row */}
       <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
-        <TableCell>
-          <IconButton
-            aria-label="expand row"
-            size="small"
-            onClick={() => setOpen(!open)}
-          >
-            {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-          </IconButton>
-        </TableCell>
         <TableCell align="center">{formatDate(row.date)}</TableCell>
         <TableCell align="center">{row.name}</TableCell>
         <TableCell align="center">{row.receipt_no}</TableCell>
@@ -154,7 +268,7 @@ function Row(props) {
           <Button
             aria-controls="simple-menu"
             aria-haspopup="true"
-            onClick={(event) => handleMenuClick(event)}
+            onClick={handleMenuClick}
             variant="contained"
             color="primary"
           >
@@ -167,62 +281,138 @@ function Row(props) {
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
           >
-            <MenuItem onClick={handleView}>View</MenuItem>
-            <MenuItem onClick={handleEdit}>Edit</MenuItem>
-            <MenuItem onClick={handleDelete}>Delete</MenuItem>
+            <MenuItem onClick={() => handleView(row)}>View</MenuItem>
+            <MenuItem onClick={() => handleEdit(row)}>Edit</MenuItem>
+            <MenuItem 
+        onClick={(e) => {
+          e.stopPropagation(); // Prevent event propagation
+          setSelectedId(rows.id);
+          setOpenDeleteDialog(true);
+        }}
+      >
+        Delete
+      </MenuItem>
           </Menu>
         </TableCell>
       </TableRow>
-      <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={12}>
-          <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box sx={{ margin: 1 }}>
-              <Typography variant="h6" gutterBottom component="div">
-                Additional Information
-              </Typography>
-              <Table size="small" aria-label="details">
+
+      {/* 🟢 View Dialog */}
+      <Dialog open={openDialogView} onClose={handleClose} fullWidth maxWidth="xl">
+        <DialogTitle>Receipt Details</DialogTitle>
+        <DialogContent>
+          {selectedRowView && (
+            <TableContainer
+              component={Paper}
+              sx={{
+                borderRadius: 4,
+                boxShadow: 3,
+                maxHeight: "70vh",
+                overflowY: "auto",
+                width: "100%",
+                "& .MuiTableCell-root": { py: 2, px: 3 },
+              }}
+            >
+              <Table stickyHeader>
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Barangay</TableCell>
-                    <TableCell>25% Share</TableCell>
-                    <TableCell>Current Year</TableCell>
-                    <TableCell>Penalties</TableCell>
-                    <TableCell>Discounts</TableCell>
-                    <TableCell>Immediate Preceding Year</TableCell>
-                    <TableCell>Penalties</TableCell>
-                    <TableCell>Prior Years</TableCell>
-                    <TableCell>Penalties</TableCell>
-                    <TableCell>Total</TableCell>
-                    <TableCell>GF and SEF</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Cashier</TableCell>
+                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                    {[
+                      "Date", "Name of Taxpayer", "Receipt No.", "Current Year",
+                      "Penalties", "Discounts", "Immediate Preceding Year", "Penalties",
+                      "Prior Years", "Penalties", "Total", "Barangay", "25% Share",
+                      "Additional Current Year", "Additional Penalties",
+                      "Additional Discounts", "Additional Prev Year",
+                      "Additional Prev Penalties", "Additional Prior Years",
+                      "Additional Prior Penalties", "Additional Total",
+                      "GF and SEF", "Status", "Cashier"
+                    ].map((header) => (
+                      <StyledTableCell key={header} align="center" sx={{ fontWeight: "bold" }}>
+                        {header}
+                      </StyledTableCell>
+                    ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   <TableRow>
-                    <TableCell align="center">{row.barangay}</TableCell>
-                    <TableCell align="center">{row.share}</TableCell>
-                    <TableCell align="center">{row.additional_current_year}</TableCell>
-                    <TableCell align="center">{row.additional_penalties}</TableCell>
-                    <TableCell align="center">{row.additional_discounts}</TableCell>
-                    <TableCell align="center">{row.additional_prev_year}</TableCell>
-                    <TableCell align="center">{row.additional_prev_penalties}</TableCell>
-                    <TableCell align="center">{row.additional_prior_years}</TableCell>
-                    <TableCell align="center">{row.additional_prior_penalties}</TableCell>
-                    <TableCell align="center">{row.additional_total}</TableCell>
-                    <TableCell align="center">{row.gf_total}</TableCell>
-                    <TableCell align="center">{row.status}</TableCell>
-                    <TableCell align="center">{row.cashier}</TableCell>
+                    <TableCell align="center">{formatDate(selectedRowView.date)}</TableCell>
+                    <TableCell align="center">{selectedRowView.name}</TableCell>
+                    <TableCell align="center">{selectedRowView.receipt_no}</TableCell>
+                    <TableCell align="center">{selectedRowView.current_year}</TableCell>
+                    <TableCell align="center">{selectedRowView.current_penalties}</TableCell>
+                    <TableCell align="center">{selectedRowView.current_discounts}</TableCell>
+                    <TableCell align="center">{selectedRowView.prev_year}</TableCell>
+                    <TableCell align="center">{selectedRowView.prev_penalties}</TableCell>
+                    <TableCell align="center">{selectedRowView.prior_years}</TableCell>
+                    <TableCell align="center">{selectedRowView.prior_penalties}</TableCell>
+                    <TableCell align="center">{selectedRowView.total}</TableCell>
+                    <TableCell align="center">{selectedRowView.barangay}</TableCell>
+                    <TableCell align="center">{selectedRowView.share}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_current_year}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_penalties}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_discounts}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_prev_year}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_prev_penalties}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_prior_years}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_prior_penalties}</TableCell>
+                    <TableCell align="center">{selectedRowView.additional_total}</TableCell>
+                    <TableCell align="center">{selectedRowView.gf_total}</TableCell>
+                    <TableCell align="center">{selectedRowView.status}</TableCell>
+                    <TableCell align="center">{selectedRowView.cashier}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
-            </Box>
-          </Collapse>
-        </TableCell>
-      </TableRow>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="primary" variant="contained">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+    
+
+{/* Confirmation Dialog */}
+<Dialog
+        open={openDeleteDialog}
+        onClose={() => setOpenDeleteDialog(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this record? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setOpenDeleteDialog(false)}
+            color="primary"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmDelete}
+            color="error"
+            variant="contained"
+          >
+            Confirm Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+        {/* 🟢 Edit Dialog (Only Render When selectedRow Exists) */}
+{/* 🟢 Edit Dialog */}
+{selectedRow && (
+  <PopupDialogView open={editDialogOpen} onClose={handleCloseEdit} title="Edit Record">
+    <RealPropertyTaxAbstract data={selectedRow} onSave={handleUpdate} onCancel={handleCloseEdit} />
+  </PopupDialogView>
+)}
     </>
   );
 }
+
 
 Row.propTypes = {
   row: PropTypes.shape({
@@ -269,80 +459,56 @@ function RealPropertyTax() {
   const [showReportTable, setShowReportTable] = useState(false);
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showFilters, setShowFilters] = useState(true);
 
   const [filteredData, setFilteredData] = useState([]);
   const [data, setData] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingSearchQuery, setPendingSearchQuery] = useState("");
+
+
   const [snackbar, setSnackbar] = useState({
         open: false,
         message: "",
         severity: "info",
       });
 
-const initialFormData = {
-    date: '',
-    barangay: '',
-    cashier: '',
-    currentYear: '',
-    currentPenalties: '',
-    currentDiscounts: '',
-    prevYear: '',
-    prevPenalties: '',
-    priorYears: '',
-    priorPenalties: '',
-    total: 0,
-    share: 0,
-    additionalCurrentYear: '',
-    additionalCurrentPenalties: '',
-    additionalCurrentDiscounts: '',
-    additionalPrevYear: '',
-    additionalPrevPenalties: '',
-    additionalPriorYears: '',
-    additionalPriorPenalties: '',
-    additionalTotal: 0,
-    gfTotal: 0,
-    name: '',
-    receipt: '',
-    status: '',
-  };
+
 
   const [formData, setFormData] = useState(initialFormData);
 
 
 useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        const gfResponse = await fetch('http://192.168.101.108:3001/api/TotalGeneralFund');
+  const fetchListings = async () => {
+    try {
+        const gfResponse = await fetch(`${baseUrl}/TotalGeneralFund`);
         if (!gfResponse.ok) throw new Error('Network response was not ok');
         const gfData = await gfResponse.json();
         const totalGF = gfData.reduce((sum, entry) => sum + parseFloat(entry.total || 0), 0);
         setGfTotal(totalGF);
 
-        const sefResponse = await fetch('http://192.168.101.108:3001/api/TotalSEFFund');
+        const sefResponse = await fetch(`${baseUrl}/TotalSEFFund`);
         if (!sefResponse.ok) throw new Error('Network response was not ok');
         const sefData = await sefResponse.json();
         const totalSEF = sefData.reduce((sum, entry) => sum + parseFloat(entry.additional_total || 0), 0);
         setSEFTotal(totalSEF);
 
-        const sharesResponse = await fetch('http://192.168.101.108:3001/api/TotalShareFund');
+        const sharesResponse = await fetch(`${baseUrl}/TotalShareFund`);
         if (!sharesResponse.ok) throw new Error('Network response was not ok share');
         const sharesData = await sharesResponse.json();
         const totalShares = sharesData.reduce((sum, entry) => sum + parseFloat(entry.share || 0), 0);
         setShareTotal(totalShares);
 
-        const listingsResponse = await fetch('http://192.168.101.108:3001/api/TotalFund');
+        const listingsResponse = await fetch(`${baseUrl}/TotalFund`);
         if (!listingsResponse.ok) throw new Error('Network response was not ok total');
         const listingsData = await listingsResponse.json();
         const totalListingsGF = listingsData.reduce((sum, listing) => sum + parseFloat(listing.gf_total || 0), 0);
         setTotal(totalListingsGF);
-      } catch (error) {
+    } catch (error) {
         console.error('Error fetching listings:', error);
-      }
-    };
-
+    }
+};
     fetchListings();
 
     const parseNumber = (value) => parseFloat(value) || 0;
@@ -381,19 +547,17 @@ useEffect(() => {
 
 
 
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(
-        "http://192.168.101.108:3001/api/allData"
-      );
-      setData(response.data);
-      setFilteredData(response.data); // Initialize with the full dataset
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
-  fetchData();
+  useEffect(() => {
+    const fetchData = async () => {
+        try {
+            const response = await axios.get(`${baseUrl}/allData`);
+            setData(response.data);
+            setFilteredData(response.data);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    };
+    fetchData();
 }, [showDailyTable, showSummaryTable, showMainTable]);
 
 useEffect(() => {
@@ -480,6 +644,8 @@ useEffect(() => {
       );
     });
   };
+
+  
 
 
   const handleDownload = () => {
@@ -806,7 +972,6 @@ const handleSearchClick = () => {
           <Table aria-label="collapsible table">
             <TableHead>
               <TableRow>
-                <StyledTableCell />
                 <StyledTableCell>DATE</StyledTableCell>
                 <StyledTableCell>NAME OF TAXPAYER</StyledTableCell>
                 <StyledTableCell>RECEIPT NO.</StyledTableCell>
@@ -836,7 +1001,7 @@ const handleSearchClick = () => {
             m={1}
           >
             <TablePagination
-              rowsPerPageOptions={[5, 10]}
+              rowsPerPageOptions={[10,15,20,50,100]}
               component="div"
               count={filteredData.length}
               rowsPerPage={rowsPerPage}
@@ -853,6 +1018,8 @@ const handleSearchClick = () => {
           <RealPropertyTaxAbstract onSave={handleSave} onClose={handleClose} />
         </PopupDialog>
       )}
+
+      
 
       <Box>
         {/*Snackbar Component (with prop fixes)*/}

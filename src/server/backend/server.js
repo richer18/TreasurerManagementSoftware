@@ -18,21 +18,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-const dbConfig = {
-  host: '192.168.101.108',
-  user: 'treasurer_root2',
-  password: '$p4ssworD!',
-  database: 'treasurer_management_app',
-  port: 3307
-};
-
 // const dbConfig = {
-//   host: 'localhost',
-//   user: 'root',
-//   password: '',
+//   host: '192.168.101.108',
+//   user: 'treasurer_root2',
+//   password: '$p4ssworD!',
 //   database: 'treasurer_management_app',
 //   port: 3307
 // };
+
+const dbConfig = {
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'treasurer_management_app',
+  port: 3307
+};
 
 const dbConfigs = {
   host: 'localhost',
@@ -102,19 +102,51 @@ app.get('/api/allData', (req, res) => {
 });
 
 // Update comment for a specific receipt_no
-app.post('/api/updateComment', (req, res) => {
-  const { receipt_no, comment } = req.body; // Use receipt_no
-  const query = 'UPDATE real_property_tax_data SET comments = ? WHERE receipt_no = ?';
+app.post("/api/updateComment", async (req, res) => {
+  const { receipt_no, comment } = req.body;
 
-  db.query(query, [comment, receipt_no], (err, result) => {
-    if (err) {
-      console.error(err);
-      res.status(500).send('Error updating comment');
-    } else {
-      res.status(200).send('Comment updated successfully');
-    }
-  });
+  try {
+    await db.query(
+      "UPDATE real_property_tax_data SET comments = ? WHERE receipt_no = ?",
+      [comment, receipt_no]
+    );
+    res.status(200).json({ message: "Comment updated successfully" });
+  } catch (error) {
+    console.error("Error updating comment:", error);
+    res.status(500).json({ error: "Database update failed" });
+  }
 });
+
+app.post("/api/updateGFComment", async (req, res) => {
+  const { receipt_no, comment } = req.body;
+
+  try {
+    await db.query(
+      "UPDATE general_fund_data SET comments = ? WHERE receipt_no = ?",
+      [comment, receipt_no]
+    );
+    res.status(200).json({ message: "Comment updated successfully" });
+  } catch (error) {
+    console.error("Error updating comment:", error);
+    res.status(500).json({ error: "Database update failed" });
+  }
+});
+
+app.post("/api/updateTFComment", async (req, res) => {
+  const { RECEIPT_NO, COMMENTS } = req.body;
+
+  try {
+    await db.query(
+      "UPDATE trust_fund_data SET COMMENTS = ? WHERE RECEIPT_NO = ?",
+      [COMMENTS, RECEIPT_NO]
+    );
+    res.status(200).json({ message: "Comment updated successfully" });
+  } catch (error) {
+    console.error("Error updating comment:", error);
+    res.status(500).json({ error: "Database update failed" });
+  }
+});
+
 
 // Update comment for all under date
 app.post('/api/allDayComment', (req, res) => {
@@ -136,23 +168,61 @@ app.post('/api/allDayComment', (req, res) => {
   });
 });
 
-// API to insert a comment into the `rpt_comments` table
-app.post('/api/insertComment', (req, res) => {
-  const { date, description, time, user } = req.body; // Extract the data from the request body
-  const query = 'INSERT INTO rpt_comments (date, description, time, user) VALUES (?, ?, ?, ?)';
+app.post("/api/insertGFComment", async (req, res) => {
+  const { date, receipt_no, date_comment, name_client, description, user } = req.body;
 
-  db.query(query, [date, description, time, user], (err, result) => {
-    if (err) {
-      console.error('Error inserting comment:', err);
-      res.status(500).send('Error inserting comment');
-    } else {
-      res.status(200).send('Comment inserted successfully');
-    }
-  });
+  try {
+    await db.query(
+      "INSERT INTO gf_comment (date, receipt_no, date_comment, name_client, description, user, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+      [date, receipt_no, date_comment, name_client, description, user]
+    );
+    res.status(200).json({ message: "Comment inserted successfully" });
+  } catch (error) {
+    console.error("Error inserting comment:", error);
+    res.status(500).json({ error: "Database insert failed" });
+  }
 });
 
-app.get('/api/commentCounts', (req, res) => {
-  const query = 'SELECT date, COUNT(*) as count FROM rpt_comments GROUP BY date';
+// API to insert a comment into the `rpt_comments` table
+app.post("/api/insertComment", async (req, res) => {
+  const { date, receipt_no, date_comment, name_client, description, user } = req.body;
+
+  try {
+    await db.query(
+      "INSERT INTO rpt_comment (date, receipt_no, date_comment, name_client, description, user, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+      [date, receipt_no, date_comment, name_client, description, user]
+    );
+    res.status(200).json({ message: "Comment inserted successfully" });
+  } catch (error) {
+    console.error("Error inserting comment:", error);
+    res.status(500).json({ error: "Database insert failed" });
+  }
+});
+
+app.post("/api/insertTFComment", async (req, res) => {
+  const { date, receipt_no, date_comment, name_client, description, user } = req.body;
+
+  console.log("Received data for insertion:", { date, receipt_no, date_comment, name_client, description, user });
+
+  try {
+    await db.query(
+      "INSERT INTO tf_comment (date, receipt_no, date_comment, name_client, description, user, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+      [date, receipt_no, date_comment, name_client, description, user]
+    );
+    res.status(200).json({ message: "Comment inserted successfully" });
+  } catch (error) {
+    console.error("Error inserting comment:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/commentRPTCounts', (req, res) => {
+  const query = `
+    SELECT DATE_FORMAT(date, "%Y-%m-%d") AS formatted_date, COUNT(*) as count 
+    FROM rpt_comment 
+    GROUP BY formatted_date
+  `;
+
   db.query(query, (err, results) => {
     if (err) {
       console.error('Error fetching comment counts:', err);
@@ -160,44 +230,78 @@ app.get('/api/commentCounts', (req, res) => {
     } else {
       const counts = {};
       results.forEach((row) => {
-        counts[row.date] = row.count;
+        counts[row.formatted_date] = row.count;  // Use formatted_date instead of full timestamp
       });
       res.json(counts);
     }
   });
 });
 
-app.get('/api/getComments/:date', (req, res) => {
-  const { date } = req.params;
-
-  const query = 'SELECT * FROM rpt_comments WHERE date = ?';
-  db.query(query, [date], (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).send('Error fetching comments');
-    } else {
-      res.status(200).json(results);
-    }
-  });
-});
-
-app.get('/api/getAllComments', (req, res) => {
-  const query = 'SELECT * FROM rpt_comments ORDER BY date DESC, time DESC';
+app.get('/api/commentGFCounts', (req, res) => {
+  const query = `
+    SELECT DATE_FORMAT(date, "%Y-%m-%d") AS formatted_date, COUNT(*) as count 
+    FROM gf_comment 
+    GROUP BY formatted_date
+  `;
 
   db.query(query, (err, results) => {
     if (err) {
-      console.error('Error fetching comments:', err);
-      res.status(500).send('Error fetching comments');
+      console.error('Error fetching comment counts:', err);
+      res.status(500).send('Error fetching comment counts');
+    } else {
+      const counts = {};
+      results.forEach((row) => {
+        counts[row.formatted_date] = row.count;  // Use formatted_date instead of full timestamp
+      });
+      res.json(counts);
+    }
+  });
+});
+
+app.get('/api/commentTFCounts', (req, res) => {
+  const query = `
+    SELECT DATE_FORMAT(date, "%Y-%m-%d") AS formatted_date, COUNT(*) as count 
+    FROM tf_comment 
+    GROUP BY formatted_date
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching comment counts:', err);
+      res.status(500).send('Error fetching comment counts');
+    } else {
+      const counts = {};
+      results.forEach((row) => {
+        counts[row.formatted_date] = row.count;  // Use formatted_date instead of full timestamp
+      });
+      res.json(counts);
+    }
+  });
+});
+
+
+
+
+
+
+app.get("/api/getAllComments", (req, res) => {
+  const query = "SELECT * FROM rpt_comment ORDER BY created_at DESC";
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching comments:", err);
+      res.status(500).send("Error fetching comments");
     } else {
       res.status(200).json(results);
     }
   });
 });
+
 
 // Fetch comment count for a specific date
 app.get('/api/getCommentCount/:date', (req, res) => {
   const { date } = req.params;
-  const query = 'SELECT COUNT(*) AS count FROM rpt_comments WHERE date = ?';
+  const query = 'SELECT COUNT(*) AS count FROM rpt_comment WHERE date = ?';
 
   db.query(query, [date], (err, results) => {
     if (err) {
@@ -210,20 +314,83 @@ app.get('/api/getCommentCount/:date', (req, res) => {
 });
 
 // Fetch comments for a specific date
-app.get('/api/getComments/:date', (req, res) => {
+app.get('/api/getRPTComments/:date', (req, res) => {
   const { date } = req.params;
-  const query = 'SELECT * FROM rpt_comments WHERE date = ? ORDER BY time DESC';
+
+  // Fetch comments based on the date of the receipt_no
+  const query = `SELECT id, 
+                        DATE_FORMAT(date, '%Y-%m-%d') AS date, 
+                        receipt_no, 
+                        DATE_FORMAT(date_comment, '%Y-%m-%d %H:%i:%s') AS date_comment, 
+                        name_client, 
+                        description, 
+                        user, 
+                        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+                 FROM rpt_comment 
+                 WHERE date = ? 
+                 ORDER BY created_at DESC`;
 
   db.query(query, [date], (err, results) => {
-    if (err) {
-      console.error('Error fetching comments:', err);
-      res.status(500).send('Error fetching comments');
-    } else {
-      res.json(results);
-    }
+      if (err) {
+          console.error('Error fetching comments:', err);
+          return res.status(500).send('Error fetching comments');
+      }
+
+      res.json(results); // Send formatted data
   });
 });
 
+app.get('/api/getGFComments/:date', (req, res) => {
+  const { date } = req.params;
+
+  // Fetch comments based on the date of the receipt_no
+  const query = `SELECT id, 
+                        DATE_FORMAT(date, '%Y-%m-%d') AS date, 
+                        receipt_no, 
+                        DATE_FORMAT(date_comment, '%Y-%m-%d %H:%i:%s') AS date_comment, 
+                        name_client, 
+                        description, 
+                        user, 
+                        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+                 FROM gf_comment 
+                 WHERE date = ? 
+                 ORDER BY created_at DESC`;
+
+  db.query(query, [date], (err, results) => {
+      if (err) {
+          console.error('Error fetching comments:', err);
+          return res.status(500).send('Error fetching comments');
+      }
+
+      res.json(results); // Send formatted data
+  });
+});
+
+app.get('/api/getTFComments/:date', (req, res) => {
+  const { date } = req.params;
+
+  // Fetch comments based on the date of the receipt_no
+  const query = `SELECT id, 
+                        DATE_FORMAT(date, '%Y-%m-%d') AS date, 
+                        receipt_no, 
+                        DATE_FORMAT(date_comment, '%Y-%m-%d %H:%i:%s') AS date_comment, 
+                        name_client, 
+                        description, 
+                        user, 
+                        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+                 FROM tf_comment 
+                 WHERE date = ? 
+                 ORDER BY created_at DESC`;
+
+  db.query(query, [date], (err, results) => {
+      if (err) {
+          console.error('Error fetching comments:', err);
+          return res.status(500).send('Error fetching comments');
+      }
+
+      res.json(results); // Send formatted data
+  });
+});
 
 // Save endpoint
 app.post('/api/save', (req, res) => {
@@ -276,93 +443,132 @@ app.post('/api/save', (req, res) => {
   });
 });
 
+app.delete('/api/deleteRPT/:id', (req, res) => {
+  const recordId = req.params.id;
+
+  const sql = `DELETE FROM real_property_tax_data WHERE id = ?`;
+
+  db.query(sql, [recordId], (err, result) => {
+    if (err) {
+      console.error('Error deleting record:', err);
+      return res.status(500).send({ error: err.sqlMessage || 'Error deleting record' });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).send({ message: 'Record not found' });
+    }
+    res.status(200).send({ message: 'Record deleted successfully' });
+  });
+});
+
+app.delete('/api/deleteGF/:id', (req, res) => {
+  const recordId = req.params.id;
+
+  const sql = `DELETE FROM general_fund_data WHERE id = ?`;
+
+  db.query(sql, [recordId], (err, result) => {
+    if (err) {
+      console.error('Error deleting record:', err);
+      return res.status(500).send({ error: err.sqlMessage || 'Error deleting record' });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).send({ message: 'Record not found' });
+    }
+    res.status(200).send({ message: 'Record deleted successfully' });
+  });
+});
+
+app.delete('/api/deleteTF/:id', (req, res) => {
+  const recordId = req.params.id;
+
+  const sql = `DELETE FROM trust_fund_data WHERE ID = ?`;
+
+  db.query(sql, [recordId], (err, result) => {
+    if (err) {
+      console.error('Error deleting record:', err);
+      return res.status(500).send({ error: err.sqlMessage || 'Error deleting record' });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).send({ message: 'Record not found' });
+    }
+    res.status(200).send({ message: 'Record deleted successfully' });
+  });
+});
+
+app.delete('/api/deleteCedula/:id', (req, res) => {
+  const recordId = req.params.id;
+
+  const sql = `DELETE FROM cedula WHERE CTC_ID = ?`;
+
+  db.query(sql, [recordId], (err, result) => {
+    if (err) {
+      console.error('Error deleting record:', err);
+      return res.status(500).send({ error: err.sqlMessage || 'Error deleting record' });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).send({ message: 'Record not found' });
+    }
+    res.status(200).send({ message: 'Record deleted successfully' });
+  });
+});
+
 
 app.put('/api/update/:id', async (req, res) => {
   const { id } = req.params;
   const updatedData = req.body;
 
-  // Validate ID and data
+  // Validate ID
   if (!id || isNaN(Number(id))) {
-    return res.status(400).send({ message: 'Invalid ID' });
+      return res.status(400).send({ message: 'Invalid ID' });
   }
 
+  console.log("Received ID for update:", id); // Debugging log
+  console.log("Updated Data Received:", updatedData); // Debugging log
+
   const sql = `
-    UPDATE real_property_tax_data
-    SET
-      date = ?,
-      name = ?,
-      receipt_no = ?,
-      current_year = ?,
-      current_penalties = ?,
-      current_discounts = ?,
-      prev_year = ?,
-      prev_penalties = ?,
-      prior_years = ?,
-      prior_penalties = ?,
-      total = ?,
-      barangay = ?,
-      share = ?,
-      additional_current_year = ?,
-      additional_penalties = ?,
-      additional_discounts = ?,
-      additional_prev_year = ?,
-      additional_prev_penalties = ?,
-      additional_prior_years = ?,
-      additional_prior_penalties = ?,
-      additional_total = ?,
-      gf_total = ?,
-      status = ?,
-      cashier = ?,
-      comments = ?
-    WHERE id = ?
+      UPDATE real_property_tax_data
+      SET
+          date = ?, name = ?, receipt_no = ?, current_year = ?, 
+          current_penalties = ?, current_discounts = ?, prev_year = ?, 
+          prev_penalties = ?, prior_years = ?, prior_penalties = ?, total = ?, 
+          barangay = ?, share = ?, additional_current_year = ?, 
+          additional_penalties = ?, additional_discounts = ?, additional_prev_year = ?, 
+          additional_prev_penalties = ?, additional_prior_years = ?, 
+          additional_prior_penalties = ?, additional_total = ?, gf_total = ?, 
+          status = ?, cashier = ?, comments = ?
+      WHERE id = ?
   `;
 
   const values = [
-    updatedData.date,
-    updatedData.name,
-    updatedData.receipt_no,
-    updatedData.current_year,
-    updatedData.current_penalties,
-    updatedData.current_discounts,
-    updatedData.prev_year,
-    updatedData.prev_penalties,
-    updatedData.prior_years,
-    updatedData.prior_penalties,
-    updatedData.total,
-    updatedData.barangay,
-    updatedData.share,
-    updatedData.additional_current_year,
-    updatedData.additional_penalties,
-    updatedData.additional_discounts,
-    updatedData.additional_prev_year,
-    updatedData.additional_prev_penalties,
-    updatedData.additional_prior_years,
-    updatedData.additional_prior_penalties,
-    updatedData.additional_total,
-    updatedData.gf_total,
-    updatedData.status,
-    updatedData.cashier,
-    updatedData.comments,
-    id, // Ensure update applies only to the specific record
+      updatedData.date, updatedData.name, updatedData.receipt_no,
+      updatedData.current_year, updatedData.current_penalties, updatedData.current_discounts,
+      updatedData.prev_year, updatedData.prev_penalties, updatedData.prior_years,
+      updatedData.prior_penalties, updatedData.total, updatedData.barangay,
+      updatedData.share, updatedData.additional_current_year, updatedData.additional_penalties,
+      updatedData.additional_discounts, updatedData.additional_prev_year,
+      updatedData.additional_prev_penalties, updatedData.additional_prior_years,
+      updatedData.additional_prior_penalties, updatedData.additional_total,
+      updatedData.gf_total, updatedData.status, updatedData.cashier,
+      updatedData.comments, id
   ];
 
   try {
-    db.query(sql, values, (err, result) => {
-      if (err) {
-        console.error('Error updating data:', err);
-        return res.status(500).send({ message: 'Error updating data' });
-      }
+      db.query(sql, values, (err, result) => {
+          if (err) {
+              console.error('SQL Error:', err.sqlMessage);
+              return res.status(500).send({ message: 'Error updating data', error: err.sqlMessage });
+          }
 
-      // Check if the record was updated
-      if (result.affectedRows === 0) {
-        return res.status(404).send({ message: 'Record not found' });
-      }
+          if (result.affectedRows === 0) {
+              console.warn("No record found for update with ID:", id);
+              return res.status(404).send({ message: 'Record not found' });
+          }
 
-      res.status(200).send({ message: 'Record updated successfully' });
-    });
+          console.log("Record updated successfully with ID:", id);
+          res.status(200).send({ message: 'Record updated successfully' });
+      });
   } catch (err) {
-    console.error('Unexpected server error:', err);
-    res.status(500).send({ message: 'Unexpected server error' });
+      console.error('Unexpected server error:', err);
+      res.status(500).send({ message: 'Unexpected server error' });
   }
 });
 
@@ -2849,37 +3055,54 @@ app.get('/api/DivingFeeTotal', (req, res) => {
   });
 });
 
-// Define an endpoint to fetch all data from trust_fund_data to show in the table
+
 app.get('/api/allDataTrustFund', (req, res) => {
-  const { year, month } = req.query;
+  const { year, month, day } = req.query;
 
-  if (!year || !month) {
-    return res.status(400).send('Year and Month parameters are required');
-  }
-
-  const sql = `
-    SELECT
+  // Base SQL query
+  let sql = `
+    SELECT 
       DATE_FORMAT(DATE, '%b %d, %Y') AS 'DATE',
-      COALESCE(BUILDING_PERMIT_FEE, 0) AS BUILDING_PERMIT_FEE,
-      COALESCE(ELECTRICAL_FEE, 0) AS ELECTRICAL_FEE,
-      COALESCE(ZONING_FEE, 0) AS ZONING_FEE,
-      COALESCE(LIVESTOCK_DEV_FUND, 0) AS LIVESTOCK_DEV_FUND,
-      COALESCE(DIVING_FEE, 0) AS DIVING_FEE,
-      COALESCE(TOTAL, 0) AS TOTAL,
-      COALESCE(COMMENTS, '') AS COMMENTS
-    FROM
-      trust_fund_data
-    WHERE
-      YEAR(DATE) = ? AND MONTH(DATE) = ?
+      SUM(COALESCE(BUILDING_PERMIT_FEE, 0)) AS BUILDING_PERMIT_FEE,
+      SUM(COALESCE(ELECTRICAL_FEE, 0)) AS ELECTRICAL_FEE,
+      SUM(COALESCE(ZONING_FEE, 0)) AS ZONING_FEE,
+      SUM(COALESCE(LIVESTOCK_DEV_FUND, 0)) AS LIVESTOCK_DEV_FUND,
+      SUM(COALESCE(DIVING_FEE, 0)) AS DIVING_FEE,
+      SUM(COALESCE(TOTAL, 0)) AS TOTAL,
+      GROUP_CONCAT(DISTINCT COMMENTS SEPARATOR '; ') AS COMMENTS
+    FROM trust_fund_data
   `;
 
-  db.query(sql, [year, month], (err, result) => {
+  // Build WHERE filters
+  let filters = [];
+  if (year) {
+    filters.push(`YEAR(DATE) = ${db.escape(year)}`);
+  }
+  if (month) {
+    filters.push(`MONTH(DATE) = ${db.escape(month)}`);
+  }
+  if (day) {
+    filters.push(`DAY(DATE) = ${db.escape(day)}`);
+  }
+
+  // Apply filters if any exist
+  if (filters.length > 0) {
+    sql += ` WHERE ${filters.join(' AND ')}`;
+  }
+
+  // Group by date and order correctly
+  sql += `
+    GROUP BY DATE_FORMAT(DATE, '%M %e, %Y')
+    ORDER BY DATE(DATE);
+  `;
+
+  // Execute query
+  db.query(sql, (err, results) => {
     if (err) {
       console.error('Error fetching trust fund data:', err);
       return res.status(500).send('Error fetching trust fund data');
     }
-
-    res.json(result);
+    res.json(results);
   });
 });
 

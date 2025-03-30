@@ -1,19 +1,22 @@
 import {
   Box,
   Button,
-  Dialog, DialogActions,
+  Dialog, DialogActions,Card,
   DialogContent,
   DialogTitle,
   Menu, MenuItem,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TablePagination,
-  TableRow,
+  TableRow,Typography,
   TextField,
   styled
 } from '@mui/material';
 import PropTypes from 'prop-types';
-import React, { useState } from 'react';
-
+import React, { useState,useMemo } from 'react';
+import { format,parseISO } from 'date-fns';
+import axios from 'axios';
+import PrintIcon from '@mui/icons-material/Print';
+import DownloadIcon from '@mui/icons-material/Download';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.dark,
@@ -36,11 +39,27 @@ const CenteredTableCell = styled(TableCell)(({ theme }) => ({
   whiteSpace: 'nowrap',
 }));
 // Function to format date
-const formatDate = (dateString) => {
-  const date = new Date(dateString);
-  const options = { month: 'short', day: 'numeric', year: 'numeric' };
-  return date.toLocaleDateString('en-US', options);
+// const formatDate = (dateString) => {
+//   const date = new Date(dateString);
+//   const options = { month: 'short', day: 'numeric', year: 'numeric' };
+//   return date.toLocaleDateString('en-US', options);
+// };
+
+const formatDate = (dateInput) => {
+  if (!dateInput) return 'Invalid Date';
+  let date;
+  if (typeof dateInput === 'string') {
+    date = parseISO(dateInput);
+  } else if (dateInput instanceof Date) {
+    date = dateInput;
+  } else {
+    return 'Invalid Date';
+  }
+  if (isNaN(date)) return 'Invalid Date';
+  return format(date, 'MMMM d, yyyy');
 };
+
+const BASE_URL = "http://localhost:3001";
 
 const DailyTable_v2 = ({ data, onClose }) => {
   
@@ -49,8 +68,10 @@ const DailyTable_v2 = ({ data, onClose }) => {
 const [currentComment, setCurrentComment] = useState('');
   const [currentRow, setCurrentRow] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [open, setOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [openCommentDialogs, setOpenCommentDialogs] = useState(false);
+  const [searchFrom, setSearchFrom] = useState(""); 
+    const [searchTo, setSearchTo] = useState("");
+
 
 
   const handleChangePage = (event, newPage) => {
@@ -61,10 +82,14 @@ const [currentComment, setCurrentComment] = useState('');
     setAnchorEl(null);
   };
 
-   const handleCommentClick = () => {
-    setOpen(true);
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleCommentClick = () => {
     setCurrentComment(currentRow.comments || '');
-    handleClose();
+    setOpenCommentDialogs(true);
+    handleMenuClose();
   };
 
   const handleEditClick = () => {
@@ -81,39 +106,192 @@ const [currentComment, setCurrentComment] = useState('');
     setCurrentRow(row); // Set the current row correctly
   };
 
-   const handleSaveComment = () => {
-   
-    console.log('COMMENT SAVE')
-    
-    setOpen(false);
+  const handleCommentClose = () => {
+    setOpenCommentDialogs(false);
   };
 
-  const paginatedData = data.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  
+  const handleSaveComment = async () => {
+    if (!currentRow) {
+        alert("No row selected!");
+        return;
+    }
+
+    try {
+        // ✅ Convert to UTC before saving to prevent timezone shift
+        const formatDate = format(new Date(currentRow.date), "yyyy-MM-dd");
+
+        // ✅ Get the current timestamp in UTC format
+        const dateComment = new Date().toISOString();
+
+        // ✅ Replace this with the actual logged-in user
+        const user = "current_user"; 
+
+        // 🔹 Step 1: Update the comment in `real_property_tax_data`
+        await axios.post(`${BASE_URL}/api/updateGFComment`, {
+            receipt_no: currentRow.receipt_no,
+            comment: currentComment,
+        });
+
+        // 🔹 Step 2: Insert comment into `rpt_comment`
+        await axios.post(`${BASE_URL}/api/insertGFComment`, {
+            date: formatDate, // Ensuring proper UTC date
+            receipt_no: currentRow.receipt_no,
+            date_comment: dateComment, // UTC timestamp
+            name_client: currentRow.name,
+            description: currentComment,
+            user: user,
+        });
+
+        alert("Comment saved successfully!");
+        handleCommentClose();
+    } catch (error) {
+        console.error("Error saving comment:", error);
+        alert("Failed to save comment");
+    }
+};
 
    // Filter the data based on the search term
-  const filteredData = paginatedData.filter((row) => {
-    return Object.values(row).some((value) => 
-      value !== null && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+   const filteredData = useMemo(() => {
+    return data.filter((entry) => {
+      const receiptNo = parseInt(entry.receipt_no, 10);
+      const from = searchFrom ? parseInt(searchFrom, 10) : null;
+      const to = searchTo ? parseInt(searchTo, 10) : null;
+  
+      if (from !== null && to !== null) {
+        return receiptNo >= from && receiptNo <= to; // **Range Match**
+      } else if (from !== null) {
+        return receiptNo === from; // **Exact Match for 'From'**
+      } else if (to !== null) {
+        return receiptNo === to; // **Exact Match for 'To'**
+      }
+  
+      return true; // If both fields are empty, return all
+    });
+  }, [data, searchFrom, searchTo]);
+
+
+  const handleDownload = () => {
+   
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const totalCollectionByCashier = useMemo(() => {
+      const totals = {
+        "RICARDO": 0,
+        "FLORA MY": 0,
+        "IRIS": 0,
+        "AGNES": 0,
+        "AMABELLA": 0, // SEF total (modify as needed)
+      };
+    
+      filteredData.forEach((row) => {
+        if (totals.hasOwnProperty(row.cashier)) {
+          totals[row.cashier] += row.total;
+        }
+      });
+    
+      return totals;
+    }, [filteredData]); // Recalculates when filteredData changes
 
   // Calculate total sum based on filtered data
   const totalSum = filteredData.reduce((acc, row) => acc + (parseFloat(row.total) || 0), 0);
+
   return (
   <>
  
  
-  <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-  <TextField
-  label="OR NUMBER"
-  variant="outlined"
-  value={searchTerm}
-  onChange={(e) => setSearchTerm(e.target.value)}
-  style={{ marginBottom: '20px' }} // Add some spacing
-/>
+ <Box sx={{ p: 3 }}>
+    
+    {/* Search Fields */}
+    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}>
+    <TextField
+      label="OR Number From"
+      variant="outlined"
+      value={searchFrom}
+      onChange={(e) => setSearchFrom(e.target.value)}
+      sx={{ minWidth: 200, flex: 1 }}
+    />
+    <TextField
+      label="OR Number To"
+      variant="outlined"
+      value={searchTo}
+      onChange={(e) => setSearchTo(e.target.value)}
+      sx={{ minWidth: 200, flex: 1 }}
+    />
+    </Box>
+    
+    {/* Download & Print Buttons */}
+    
+    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 3 }}>
+      <Button
+      variant="contained"
+      color="primary"
+      startIcon={<DownloadIcon />}
+      onClick={handleDownload}
+      >
+        Download CSV
+        </Button>
+        
+        
+        <Button
+        variant="contained"
+        color="secondary"
+        startIcon={<PrintIcon />}
+        onClick={handlePrint}
+        >
+          Print
+          </Button>
+          
+    </Box>
+
+  {/* Cashier Collection Cards */}
+  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mt: 3 }}>
+    {[
+      { value: totalCollectionByCashier["RICARDO"], text: "RICARDO ENOPIA" },
+      { value: totalCollectionByCashier["FLORA MY"], text: "FLORA MY FERRER" },
+      { value: totalCollectionByCashier["IRIS"], text: "IRIS RAFALES" },
+      { value: totalCollectionByCashier["AGNES"], text: "AGNES ELLO" },
+      { value: totalCollectionByCashier["AMABELLA"], text: "AMABELLA" },
+    ].map(({ value, text }) => (
+      <Card
+        key={text}
+        sx={{
+          flex: "1 1 250px",
+          p: 3,
+          borderRadius: "12px",
+          background: "linear-gradient(135deg, #3f51b5, #5c6bc0)",
+          color: "white",
+          boxShadow: "0 8px 24px rgba(63,81,181,0.15)",
+          transition: "transform 0.3s ease, box-shadow 0.3s ease",
+          cursor: "pointer",
+          "&:hover": {
+            transform: "translateY(-5px)",
+            boxShadow: "0 12px 30px rgba(40,62,81,0.3)",
+          },
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ opacity: 0.9, mb: 0.5 }}>
+          {text}
+        </Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          {typeof value === "number"
+            ? new Intl.NumberFormat("en-PH", {
+                style: "currency",
+                currency: "PHP",
+                minimumFractionDigits: 2,
+              }).format(value)
+            : value}
+        </Typography>
+      </Card>
+    ))}
+  </Box>
 </Box>
-    <TableContainer component={Paper} style={{ maxHeight: '600px' }}>
+
+
+<TableContainer component={Paper} style={{ maxHeight: '600px', minWidth: '1200px' }}>
       <Table aria-label="daily data table">
   <TableHead>
     <StyledTableRow>
@@ -251,29 +429,31 @@ const [currentComment, setCurrentComment] = useState('');
     />
   </Box>
 </Box>
- {/* Comment Dialog */}
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>Comment</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Comment"
-            type="text"
-            fullWidth
-            value={currentComment}
-            onChange={(e) => setCurrentComment(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleSaveComment} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+
+
+  {/* Comment Dialog */}
+  <Dialog open={openCommentDialogs} onClose={handleCommentClose}>
+         <DialogTitle>Comment</DialogTitle>
+         <DialogContent>
+           <TextField
+             autoFocus
+             margin="dense"
+             label="Comment"
+             type="text"
+             fullWidth
+             value={currentComment}
+             onChange={(e) => setCurrentComment(e.target.value)}
+           />
+         </DialogContent>
+         <DialogActions>
+           <Button onClick={handleCommentClose} color="primary">
+             Cancel
+           </Button>
+           <Button onClick={handleSaveComment} color="primary">
+             Save
+           </Button>
+         </DialogActions>
+       </Dialog>
 </>
   );
 };

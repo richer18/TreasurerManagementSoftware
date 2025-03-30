@@ -72,6 +72,8 @@ const years = [
   { label: "2030", value: "2030" },
 ];
 
+const BASE_URL = "http://localhost:3001";
+
 function Summary({ setMonth, setYear, onBack }) {
   // State variables
   const [data1, setData1] = useState({ land: [] });
@@ -99,63 +101,53 @@ function Summary({ setMonth, setYear, onBack }) {
     setYear(year);
   }, [month, day, year, setMonth, setYear]);
 
-  // Fetch data
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const params = { month, day, year };
+ // Fetch data
+const fetchData = useCallback(async () => {
+  try {
+    setIsLoading(true);
+    const params = { month, day, year };
 
-      const [
-        landResponse,
-        bldgResponse,
-        sefLandResponse,
-        sefBldgResponse,
-        landSharingResponse,
-        bldgSharingResponse,
-        grandSharingResponse,
-        sefLandSharingResponse,
-        sefBuildingSharingResponse,
-        sefGrandTotalSharingResponse,
-        basicSefOverAllTotalResponse,
-        basicSefOverAllSharingTotalResponse,
-      ] = await Promise.all([
-        axios.get('http://192.168.101.108:3001/api/landData', { params }),
-        axios.get('http://192.168.101.108:3001/api/bldgData', { params }),
-        axios.get('http://192.168.101.108:3001/api/seflandData', { params }),
-        axios.get('http://192.168.101.108:3001/api/sefbldgData', { params }),
-        axios.get('http://192.168.101.108:3001/api/LandSharingData', { params }),
-        axios.get('http://192.168.101.108:3001/api/buildingSharingData', { params }),
-        axios.get('http://192.168.101.108:3001/api/grandTotalSharing', { params }),
-        axios.get('http://192.168.101.108:3001/api/sefLandSharingData', { params }),
-        axios.get('http://192.168.101.108:3001/api/sefBuildingSharingData', { params }),
-        axios.get('http://192.168.101.108:3001/api/sefGrandTotalSharing', { params }),
-        axios.get('http://192.168.101.108:3001/api/overallTotalBasicAndSEF', { params }),
-        axios.get('http://192.168.101.108:3001/api/overallTotalBasicAndSEFSharing', { params }),
-      ]);
+    const endpoints = [
+      "/api/landData",
+      "/api/bldgData",
+      "/api/seflandData",
+      "/api/sefbldgData",
+      "/api/LandSharingData",
+      "/api/buildingSharingData",
+      "/api/grandTotalSharing",
+      "/api/sefLandSharingData",
+      "/api/sefBuildingSharingData",
+      "/api/sefGrandTotalSharing",
+      "/api/overallTotalBasicAndSEF",
+      "/api/overallTotalBasicAndSEFSharing",
+    ];
 
-      // Set state with fetched data
-      setData1({ land: landResponse.data });
-      setData2({ bldg: bldgResponse.data });
-      setSefLandData({ land: sefLandResponse.data });
-      setSefBldgData({ bldg: sefBldgResponse.data });
+    const responses = await Promise.all(
+      endpoints.map((endpoint) => axios.get(`${BASE_URL}${endpoint}`, { params }))
+    );
 
-      setLandSharingData(landSharingResponse.data);
-      setBldgSharingData(bldgSharingResponse.data);
+    setData1({ land: responses[0].data });
+    setData2({ bldg: responses[1].data });
+    setSefLandData({ land: responses[2].data });
+    setSefBldgData({ bldg: responses[3].data });
 
-      setGrandSharingTotal(grandSharingResponse.data[0]["Grand Total"]);
-      setSefGrandSharingTotal(sefGrandTotalSharingResponse.data[0]["Grand Total"]);
+    setLandSharingData(responses[4].data);
+    setBldgSharingData(responses[5].data);
 
-      setSefLandSharingData(sefLandSharingResponse.data);
-      setSefBuildingSharingData(sefBuildingSharingResponse.data);
+    setGrandSharingTotal(responses[6].data?.[0]?.["Grand Total"] || 0);
+    setSefGrandSharingTotal(responses[9].data?.[0]?.["Grand Total"] || 0);
 
-      setBasicSefOverAllTotal(basicSefOverAllTotalResponse.data[0]["Grand Total"]);
-      setBasicSefOverAllGrandSharingTotal(basicSefOverAllSharingTotalResponse.data[0]["Grand Total"]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [month, day, year]);
+    setSefLandSharingData(responses[7].data);
+    setSefBuildingSharingData(responses[8].data);
+
+    setBasicSefOverAllTotal(responses[10].data?.[0]?.["Grand Total"] || 0);
+    setBasicSefOverAllGrandSharingTotal(responses[11].data?.[0]?.["Grand Total"] || 0);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  } finally {
+    setIsLoading(false);
+  }
+}, [month, day, year]);
 
   useEffect(() => {
     fetchData();

@@ -27,6 +27,8 @@ const years = Array.from({ length: 100 }, (_, i) => ({
     value: 2030 - i,
 }));
 
+const BASE_URL = "http://192.168.101.108:3001";
+
 function TotalReport({ item, ...rest }) {
     const [month, setMonth] = useState(null);
     const [day, setDay] = useState(null);
@@ -41,7 +43,7 @@ function TotalReport({ item, ...rest }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get('http://192.168.101.108:3001/api/general-fund-total-tax-report', {
+                const response = await axios.get(`${BASE_URL}/api/general-fund-total-tax-report`, {
                     params: {
                         month: month ? month.value : undefined,
                         day: day ? day.value : undefined,

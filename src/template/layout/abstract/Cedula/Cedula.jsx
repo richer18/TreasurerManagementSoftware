@@ -5,7 +5,7 @@ import {
   Box,
   Button,
   Card,
-  InputAdornment,
+  InputAdornment,Dialog,DialogActions,DialogContent,DialogContentText,DialogTitle,
   Menu,
   MenuItem,
   Paper,
@@ -106,7 +106,7 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString("en-US", options);
 };
 
-const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+const BASE_URL = "http://localhost:3001"; // Define base URL
 
 
 // ------------------------
@@ -154,6 +154,10 @@ function Cedula({ ...props }) {
     message: "",
     severity: "info",
   });
+
+  const [rows, setRows] = React.useState([]);
+      const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+      const [selectedId, setSelectedId] = useState(null);
 
   // ------------------------
   //  1) Fetch data once
@@ -403,6 +407,31 @@ function Cedula({ ...props }) {
     // Move whatever is typed in pendingSearchQuery into searchQuery
     // This triggers the filter in the useEffect
     setSearchQuery(pendingSearchQuery);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedId) return;
+    
+    try {
+      const response = await fetch(`/api/deleteCedula/${selectedId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Record deleted successfully");
+        setRows(prev => prev.filter(row => row.id !== selectedId));
+      } else {
+        alert(result.error || "Failed to delete record");
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      alert("Error deleting record");
+    } finally {
+      setOpenDeleteDialog(false);
+      setSelectedId(null);
+    }
   };
 
   // ------------------------
@@ -734,13 +763,8 @@ function Cedula({ ...props }) {
       >
         <MenuItem onClick={handleViewClick}>View</MenuItem>
         <MenuItem onClick={handleEditClick}>Edit</MenuItem>
-        <MenuItem
-          onClick={() => {
-            console.log("Delete", selectedRow);
-            handleMenuClose();
-          }}
-        >
-          Delete
+        <MenuItem onClick={(e) => {e.stopPropagation(); setSelectedId(rows.id);setOpenDeleteDialog(true);}}>
+        Delete
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -758,6 +782,36 @@ function Cedula({ ...props }) {
           {dialogContent}
         </PopupDialog>
       )}
+
+      {/* Confirmation Dialog */}
+                  <Dialog
+                          open={openDeleteDialog}
+                          onClose={() => setOpenDeleteDialog(false)}
+                          maxWidth="xs"
+                          fullWidth
+                        >
+                          <DialogTitle>Confirm Delete</DialogTitle>
+                          <DialogContent>
+                            <DialogContentText>
+                              Are you sure you want to delete this record? This action cannot be undone.
+                            </DialogContentText>
+                          </DialogContent>
+                          <DialogActions>
+                            <Button 
+                              onClick={() => setOpenDeleteDialog(false)}
+                              color="primary"
+                            >
+                              Cancel
+                            </Button>
+                            <Button 
+                              onClick={handleConfirmDelete}
+                              color="error"
+                              variant="contained"
+                            >
+                              Confirm Delete
+                            </Button>
+                          </DialogActions>
+                        </Dialog>
 
       <Box {...props}>
         {/*Snackbar Component (with prop fixes)*/}

@@ -1,13 +1,13 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import InboxIcon from '@mui/icons-material/Inbox';
+// import InboxIcon from '@mui/icons-material/Inbox';
 import {
   Autocomplete,
-  Box,
+  Box,Badge,
   Button,
   Dialog,
   DialogContent,
-  DialogTitle, IconButton,
+  DialogTitle, IconButton,Menu,MenuItem,
   Paper,
   Table,
   TableBody,
@@ -21,8 +21,11 @@ import {
 import { styled } from '@mui/system';
 import axios from 'axios';
 import dayjs from 'dayjs';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState,useMemo } from 'react';
 import DailyTablev2 from './components/Table/DailyTable';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import CommentsDialog from '../../RealPropertyTax/TableData/CommentsDialog';
+import { format, parseISO } from 'date-fns';
 
 // Styled components
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -31,6 +34,10 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontWeight: 'bold',
   textAlign: 'center',
 }));
+
+const RightAlignedTableCell = styled(TableCell)({
+  textAlign: 'right',
+});
 
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:nth-of-type(odd)': {
@@ -47,124 +54,183 @@ const CenteredTableCell = styled(TableCell)({
 
 // Month and Year options
 const months = [
-  { label: 'January', value: '1' },
-  { label: 'February', value: '2' },
-  { label: 'March', value: '3' },
-  { label: 'April', value: '4' },
-  { label: 'May', value: '5' },
-  { label: 'June', value: '6' },
-  { label: 'July', value: '7' },
-  { label: 'August', value: '8' },
-  { label: 'September', value: '9' },
-  { label: 'October', value: '10' },
-  { label: 'November', value: '11' },
-  { label: 'December', value: '12' },
+  { label: "January", value: 1 },
+  { label: "February", value: 2 },
+  { label: "March", value: 3 },
+  { label: "April", value: 4 },
+  { label: "May", value: 5 },
+  { label: "June", value: 6 },
+  { label: "July", value: 7 },
+  { label: "August", value: 8 },
+  { label: "September", value: 9 },
+  { label: "October", value: 10 },
+  { label: "November", value: 11 },
+  { label: "December", value: 12 }
 ];
 
-const years = Array.from({ length: 100 }, (_, i) => ({
-    label: String(2050 - i),
-    value: 2050 - i,
+const years = Array.from({ length: 10 }, (_, i) => ({
+  label: `${new Date().getFullYear() - i}`,
+  value: new Date().getFullYear() - i
 }));
 
-const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
 
-function DailyTable({ onBack }) {
-  
-  const [data, setData] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(''); // Set default value
-  const [selectedYear, setSelectedYear] = useState(''); // Set default value
-  const [viewData, setViewData] = useState([]);
-  const [viewOpen, setViewOpen] = useState(false);
-
-  // Fetch data on month/year change
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const queryParams = new URLSearchParams();
-
-      if (selectedMonth) queryParams.append('month', selectedMonth.value);
-      if (selectedYear) queryParams.append('year', selectedYear.value);
-
-      const response = await fetch(
-        `${BASE_URL}/api/allDataTrustFund?${queryParams.toString()}`
-      );
-      const result = await response.json();
-      console.log('Fetched Data:', result);
-
-      const aggregated = result.reduce((acc, row) => {
-        const existing = acc.find((item) => item.DATE === row.DATE);
-        if (existing) {
-          existing.BUILDING_PERMIT_FEE += row.BUILDING_PERMIT_FEE || 0;
-          existing.ELECTRICAL_FEE += row.ELECTRICAL_FEE || 0;
-          existing.ZONING_FEE += row.ZONING_FEE || 0;
-          existing.LIVESTOCK_DEV_FUND += row.LIVESTOCK_DEV_FUND || 0;
-          existing.DIVING_FEE += row.DIVING_FEE || 0;
-          existing.TOTAL += row.TOTAL || 0;
-        } else {
-          acc.push({ ...row });
-        }
-        return acc;
-      }, []);
-
-      console.log('Aggregated Data:', aggregated);
-
-      setData(aggregated);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+const formatDate = (dateInput) => {
+    if (!dateInput) return 'Invalid Date';
+    let date;
+    if (typeof dateInput === 'string') {
+      date = parseISO(dateInput);
+    } else if (dateInput instanceof Date) {
+      date = dateInput;
+    } else {
+      return 'Invalid Date';
     }
+    if (isNaN(date)) return 'Invalid Date';
+    return format(date, 'MMMM d, yyyy');
   };
 
-  fetchData();
-}, [selectedMonth, selectedYear]);
+
+const BASE_URL = "http://localhost:3001"; // Define base URL
+
+function DailyTable({ onDataFiltered,onBack }) {
+  
+  const [data, setData] = useState([]);
+  const currentYear = new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState(1);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [viewData, setViewData] = useState([]);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [currentRow, setCurrentRow] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentCounts, setCommentCounts] = useState({});
+  const [openCommentDialog, setOpenCommentDialog] = useState(false);
+
+  
+
+  // Fetch data on month/year change
+  // Fetch data when the component mounts & when filters change
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/api/allDataTrustFund`, {
+          params: { month: selectedMonth, year: selectedYear }
+        });
+
+        setData(response.data);
+        if (onDataFiltered) {
+          onDataFiltered(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, [selectedMonth, selectedYear, onDataFiltered]);
 
 
-  const handleViewClick = async (date) => {
-  try {
-    const response = await axios.get(
-      `${BASE_URL}/api/viewalldataTrustFundTableView?date=${dayjs(date).format("YYYY-MM-DD")}`
-    );
+  const handleViewClick = () => {
+    if (!currentRow?.DATE) {
+      console.error("Current row or date is not defined.");
+      return;
+    }
+  
+    const formattedDate = dayjs(currentRow.DATE).format("YYYY-MM-DD");
+  
+    axios
+      .get(`${BASE_URL}/api/viewalldataTrustFundTableView`, {
+        params: { date: formattedDate }, // ✅ Cleaner way to add query parameters
+      })
+      .then((response) => {
+  
+        // Transform numeric fields to strings
+        const transformedData = response.data.map((item) => {
+          const numericFields = [
+            "BUILDING_PERMIT_FEE", "LOCAL_80_PERCENT", "TRUST_FUND_15_PERCENT",
+            "NATIONAL_5_PERCENT", "ELECTRICAL_FEE", "ZONING_FEE",
+            "LIVESTOCK_DEV_FUND", "LOCAL_80_PERCENT_LIVESTOCK", "NATIONAL_20_PERCENT",
+            "DIVING_FEE", "LOCAL_40_PERCENT_DIVE_FEE", "BRGY_30_PERCENT",
+            "FISHERS_30_PERCENT", "TOTAL"
+          ];
+  
+          return numericFields.reduce(
+            (acc, field) => ({
+              ...acc,
+              [field]: item[field]?.toString() || "0", // Ensure it's a string, fallback to "0"
+            }),
+            { ...item }
+          );
+        });
+  
+        setViewData(transformedData);
+        setViewOpen(true);
+      })
+      .catch((error) => {
+        console.error("Error fetching detailed data:", error);
+      });
+  };
 
-    // Transform numeric fields to strings
-    const transformedData = response.data.map((item) => ({
-      ...item,
-      BUILDING_PERMIT_FEE: item.BUILDING_PERMIT_FEE.toString(),
-      LOCAL_80_PERCENT: item.LOCAL_80_PERCENT.toString(),
-      TRUST_FUND_15_PERCENT: item.TRUST_FUND_15_PERCENT.toString(),
-      NATIONAL_5_PERCENT: item.NATIONAL_5_PERCENT.toString(),
-      ELECTRICAL_FEE: item.ELECTRICAL_FEE.toString(),
-      ZONING_FEE: item.ZONING_FEE.toString(),
-      LIVESTOCK_DEV_FUND: item.LIVESTOCK_DEV_FUND.toString(),
-      LOCAL_80_PERCENT_LIVESTOCK: item.LOCAL_80_PERCENT_LIVESTOCK.toString(),
-      NATIONAL_20_PERCENT: item.NATIONAL_20_PERCENT.toString(),
-      DIVING_FEE: item.DIVING_FEE.toString(),
-      LOCAL_40_PERCENT_DIVE_FEE: item.LOCAL_40_PERCENT_DIVE_FEE.toString(),
-      BRGY_30_PERCENT: item.BRGY_30_PERCENT.toString(),
-      FISHERS_30_PERCENT: item.FISHERS_30_PERCENT.toString(),
-      TOTAL: item.TOTAL.toString(),
-    }));
-
-    setViewData(transformedData);
-    setViewOpen(true);
-  } catch (error) {
-    console.error('Error fetching detailed data:', error);
-  }
-};
 
   const handleViewClose = () => {
     setViewOpen(false);
   };
+  
 
-  // For number values (currency columns)
-const MonetaryTableCell = styled(TableCell)(({ theme }) => ({
-  textAlign: 'center',
-  fontFamily: 'monospace',
-  fontWeight: 800,
-  fontSize: '1.9rem',
-  [theme.breakpoints.up('md')]: {
-    fontSize: '1rem'
-  }
-}));
+ // Handle month selection
+ const handleMonthChange = (_, value) => {
+  setSelectedMonth(value ? value.value : 1);
+};
 
+// Handle year selection
+const handleYearChange = (_, value) => {
+  setSelectedYear(value ? value.value : currentYear);
+};
+
+const handleClick = (event, row) => {
+  setAnchorEl(event.currentTarget);
+  setCurrentRow(row); // Set the current row correctly
+};
+
+const handleViewComments = async (date) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/getTFComments/${date}`);
+      console.log("Fetched Comments from API:", response.data); // Debugging
+  
+      if (response.status === 200 && response.data.length > 0) {
+        setComments(response.data); // Set comments
+        setOpenCommentDialog(true);
+      } else {
+        console.warn("No comments found for this date.");
+        setComments([]); // Clear comments
+        // setOpenCommentDialog(true);
+      }
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    }
+  };
+
+  useEffect(() => {
+    axios.get(`${BASE_URL}/api/commentTFCounts`)
+      .then((response) => {
+        setCommentCounts(response.data); // Store comment counts in state
+      })
+      .catch((error) => {
+        console.error("Error fetching comment counts:", error);
+      });
+  }, []);
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const totalAmount = useMemo(() => {
+      return data.reduce((total, row) => total + row['Overall Total'], 0);
+    }, [data]);
+
+    const handleCommentDialogClose = () => {
+      setOpenCommentDialog(false);
+      setComments([]); // Clear comments when closing
+    };
   return (
     <>
     {/* Enhanced Header */}
@@ -202,144 +268,120 @@ const MonetaryTableCell = styled(TableCell)(({ theme }) => ({
       </Typography>
       
       <Box display="flex" gap={2} alignItems="center">
-        <Autocomplete
-          options={months}
-          onChange={(_, value) => setSelectedMonth(value)}
-          value={selectedMonth}
-          sx={{ width: 180 }}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Month"
-              variant="outlined"
-              size="small"
-            />
-          )}
-        />
-        <Autocomplete
-          options={years}
-          onChange={(_, value) => setSelectedYear(value)}
-          value={selectedYear}
-          sx={{ width: 150 }}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Year"
-              variant="outlined"
-              size="small"
-            />
-          )}
-        />
+      <Autocomplete
+        disablePortal
+        id="month-selector"
+        options={months}
+        value={months.find((m) => m.value === selectedMonth) || null}
+        sx={{ width: 150 }}
+        onChange={handleMonthChange}
+        renderInput={(params) => <TextField {...params} label="Month" />}
+      />
+      <Autocomplete
+        disablePortal
+        id="year-selector"
+        options={years}
+        value={years.find((y) => y.value === selectedYear) || null}
+        sx={{ width: 150 }}
+        onChange={handleYearChange}
+        renderInput={(params) => <TextField {...params} label="Year" />}
+      />
       </Box>
     </Box>
-  
+   
     {/* Enhanced Table */}
-<TableContainer 
+    <TableContainer 
   component={Paper}
   sx={{
     borderRadius: 4,
     boxShadow: 3,
-    '& .MuiTableCell-root': {
-      py: 2
-    }
+    '& .MuiTableCell-root': { py: 2 }
   }}
 >
-  <Table>
+  <Table aria-label="daily data table">
     <TableHead>
       <StyledTableRow>
         {[
-          'Date', 'Building', 'Electrical Fee', 
+          'DATE', 'Building', 'Electrical Fee', 
           'Zoning Fee', 'Livestock Dev. Fund', 
-          'Diving Fee', 'Total', 'Action'
-        ].map((header) => (
-          <StyledTableCell 
-            key={header}
-            sx={{
-              fontSize: '1rem',       // Reduced from 1.1rem
-              fontWeight: 600,        // Added medium weight
-              bgcolor: 'primary.dark',
-              color: 'common.white',
-              letterSpacing: '0.5px'  // Improved readability
-            }}
-          >
-            {header}
-          </StyledTableCell>
+          'Diving Fee', 'TOTAL', 'COMMENTS', 'ACTION'
+        ].map((header, index) => (
+          <StyledTableCell key={index}>{header}</StyledTableCell>
         ))}
       </StyledTableRow>
     </TableHead>
-
-    
     
     <TableBody>
-      {data.length > 0 ? data.map((row, index) => (
-        <StyledTableRow 
-          key={`${row.DATE}-${index}`}
-          sx={{
-            '&:nth-of-type(even)': {
-              bgcolor: 'action.hover'
-            },
-            '&:hover': {
-              bgcolor: 'action.selected'
-            }
-          }}
-        >
-          <CenteredTableCell sx={{ fontSize: '0.9rem' }}>
-            <Box fontWeight="500">
-              {dayjs(row.DATE).format('MMM D, YYYY')}
-            </Box>
-          </CenteredTableCell>
+      {data.map((row, index) => (
+        <StyledTableRow key={row.id || index}>
+          <CenteredTableCell>{dayjs(row.DATE).format('MMM D, YYYY')}</CenteredTableCell>
           
           {[
-        'BUILDING_PERMIT_FEE',
-        'ELECTRICAL_FEE',
-        'ZONING_FEE',
-        'LIVESTOCK_DEV_FUND',
-        'DIVING_FEE',
-        'TOTAL'
-      ].map((field) => (
-        <MonetaryTableCell key={field}>
-          ₱{Number(row[field]).toLocaleString()}
-        </MonetaryTableCell>
-      ))}
+            'BUILDING_PERMIT_FEE', 'ELECTRICAL_FEE', 'ZONING_FEE',
+            'LIVESTOCK_DEV_FUND', 'DIVING_FEE', 'TOTAL'
+          ].map((field, idx) => (
+            <CenteredTableCell key={idx}>
+              {Number(row[field]).toLocaleString()}
+            </CenteredTableCell>
+          ))}
           
           <CenteredTableCell>
-            <Button
-              variant="outlined"
-              color="primary"
-              onClick={() => handleViewClick(row.DATE)}
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: 1,
-                fontSize: '0.875rem',  // Button text size
-                py: 0.5,                // Vertical padding
-                px: 2                  // Horizontal padding
-              }}
+            <Badge
+              badgeContent={commentCounts[dayjs(row.DATE).format("YYYY-MM-DD")]}
+              color="error"
+              overlap="circular"
+              invisible={!commentCounts[dayjs(row.DATE).format("YYYY-MM-DD")]}
             >
-              View Details
-            </Button>
+              <IconButton onClick={() => handleViewComments(dayjs(row.DATE).format("YYYY-MM-DD"))}>
+                <VisibilityIcon color="primary" />
+              </IconButton>
+            </Badge>
           </CenteredTableCell>
+          
+          <CenteredTableCell>
+        <Button
+        variant="contained"
+        color="primary"
+        onClick={(event) => handleClick(event, row)}
+        sx={{ textTransform: 'none' }}
+        >
+          Action
+          </Button>
+          <Menu
+  id="simple-menu"
+  anchorEl={anchorEl}
+  keepMounted
+  open={Boolean(anchorEl)}
+  onClose={handleClose}
+  slotProps={{
+    paper: {
+      elevation: 0, // Removes shadow
+      sx: { boxShadow: 'none' }, // Ensures no shadow
+    },
+  }}
+  anchorOrigin={{
+    vertical: 'bottom',
+    horizontal: 'right',
+  }}
+  transformOrigin={{
+    vertical: 'top',
+    horizontal: 'right',
+  }}
+>
+  <MenuItem onClick={handleViewClick}>View</MenuItem>
+</Menu>
+      </CenteredTableCell>
         </StyledTableRow>
-      )) : (
-        <StyledTableRow>
-          <CenteredTableCell colSpan={8} sx={{ py: 6 }}>
-            <Box
-              display="flex"
-              flexDirection="column"
-              alignItems="center"
-              color="text.secondary"
-            >
-              <InboxIcon sx={{ fontSize: 48, mb: 2 }} />
-              <Typography variant="body1" sx={{ fontWeight: 500, mb: 0.5 }}>
-                No records found
-              </Typography>
-              <Typography variant="body2">
-                Try adjusting your filters
-              </Typography>
-            </Box>
-          </CenteredTableCell>
-        </StyledTableRow>
-      )}
+      ))}
+
+      <StyledTableRow>
+        <RightAlignedTableCell colSpan={7}>
+          <Typography fontWeight="bold">TOTAL</Typography>
+        </RightAlignedTableCell>
+        <RightAlignedTableCell>
+          <Typography fontWeight="bold">{totalAmount.toFixed(2)}</Typography>
+        </RightAlignedTableCell>
+      </StyledTableRow>
     </TableBody>
   </Table>
 </TableContainer>
@@ -357,23 +399,22 @@ const MonetaryTableCell = styled(TableCell)(({ theme }) => ({
         }
       }}
     >
-      <DialogTitle sx={{ 
-        bgcolor: 'primary.main',
-        color: 'common.white',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <Typography variant="h6">
-          Transaction Details - {dayjs(viewData?.[0]?.DATE).format('MMMM D, YYYY')}
-        </Typography>
-        <IconButton 
-          onClick={handleViewClose}
-          sx={{ color: 'common.white' }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
+      <DialogTitle
+  sx={{
+    bgcolor: "primary.main",
+    color: "common.white",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  }}
+>
+  <Typography variant="h6" component="span">
+    Transaction Details - {dayjs(viewData?.[0]?.DATE).format("MMMM D, YYYY")}
+  </Typography>
+  <IconButton onClick={handleViewClose} sx={{ color: "common.white" }}>
+    <CloseIcon />
+  </IconButton>
+</DialogTitle>
       
       <DialogContent sx={{ p: 0 }}>
         <DailyTablev2 
@@ -383,6 +424,13 @@ const MonetaryTableCell = styled(TableCell)(({ theme }) => ({
         />
       </DialogContent>
     </Dialog>
+
+    <CommentsDialog
+            open={openCommentDialog}
+            onClose={handleCommentDialogClose}
+            comments={comments}
+            formatDate={formatDate}
+          />
   </>
   );
 }

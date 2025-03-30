@@ -7,7 +7,7 @@ import {
   Autocomplete,
   Box,
   Button,
-  Card,
+  Card,Dialog,DialogTitle,DialogContent,DialogContentText,DialogActions,
   InputAdornment,
   Menu,
   MenuItem,
@@ -113,7 +113,9 @@ const years = [
   { label: "2027", value: "2027" },
   { label: "2028", value: "2028" },
   { label: "2029", value: "2029" },
-];
+];  
+
+const BASE_URL = "http://localhost:3001";
 
 function GeneralFund() {
   // Dialog states
@@ -123,7 +125,7 @@ function GeneralFund() {
   // Table states
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Menu & selectedRow states
   const [anchorEl, setAnchorEl] = useState(null);
@@ -153,38 +155,42 @@ const [openDailyTable, setOpenDailyTable] = useState(false);
   const [showMainTable, setShowMainTable] = useState(true);
   const [showReportTable, setShowReportTable] = useState(false);
   const [dailyTableData, setDailyTableData] = useState([]);
-
   const [showFilters, setShowFilters] = useState(true);
-
-  
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
   const [month, setMonth] = useState(null);
   const [year, setYear] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
   const [data, setData] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingSearchQuery, setPendingSearchQuery] = useState("");
+  const [rows, setRows] = React.useState([]);
   const [snackbar, setSnackbar] = useState({
       open: false,
       message: "",
       severity: "info",
     });
 
+    const [loading, setLoading] = useState(true);
+
 
   // Fetch main table data on mount
   useEffect(() => {
-      const fetchData = async () => {
-        try {
-          const response = await axios.get(
-            "http://192.168.101.108:3001/api/generalFundDataAll"
-          );
-          setData(response.data);
-          setFilteredData(response.data); // Initialize with the full dataset
-        } catch (error) {
-          console.error("Error fetching data:", error);
-        }
-      };
-      fetchData();
-    }, []);
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/api/generalFundDataAll`);
+        setData(response.data);
+        setFilteredData(response.data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchData();
+  }, []);
+  
 
 
     useEffect(() => {
@@ -228,15 +234,14 @@ const [openDailyTable, setOpenDailyTable] = useState(false);
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const listingsResponse = await fetch('http://192.168.101.108:3001/api/TotalGeneralFundS');
-        if (!listingsResponse.ok) throw new Error('Network response was not ok total');
-        const listingsData = await listingsResponse.json();
-        const totalListingsGFTOTAL = parseFloat(listingsData[0]?.overall_total || 0);
+        const response = await axios.get(`${BASE_URL}/api/TotalGeneralFundS`);
+        const totalListingsGFTOTAL = parseFloat(response.data[0]?.overall_total || 0);
         setAllTotal(totalListingsGFTOTAL);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching total general fund:", error);
       }
     };
+  
     fetchAllData();
   }, []);
 
@@ -258,34 +263,24 @@ const [openDailyTable, setOpenDailyTable] = useState(false);
   useEffect(() => {
     const fetchTotals = async () => {
       try {
-        const fetchTotal = async (endpoint) => {
-          const response = await fetch(`http://192.168.101.108:3001/api/${endpoint}`);
-          if (!response.ok) throw new Error(`Network response was not ok ${endpoint}`);
-          return await response.json();
-        };
-
-        const [
-          taxOnBusinessData,
-          regulatoryFeesData,
-          serviceUserChargesData,
-          receiptsFromEconomicEnterprisesData
-        ] = await Promise.all([
-          fetchTotal('TaxOnBusinessTotal'),
-          fetchTotal('RegulatoryFeesTotal'),
-          fetchTotal('ServiceUserChargesTotal'),
-          fetchTotal('ReceiptsFromEconomicEnterprisesTotal')
-        ]);
-
-        setTaxOnBusinessTotal(parseFloat(taxOnBusinessData.tax_on_business || 0));
-        setRegulatoryFeesTotal(parseFloat(regulatoryFeesData.regulatory_fees || 0));
-        setServiceUserChargesTotal(parseFloat(serviceUserChargesData.service_user_charges || 0));
-        setReceiptsFromEconomicEnterprisesTotal(
-          parseFloat(receiptsFromEconomicEnterprisesData.receipts_from_economic_enterprises || 0)
-        );
+        const endpoints = [
+          "TaxOnBusinessTotal",
+          "RegulatoryFeesTotal",
+          "ServiceUserChargesTotal",
+          "ReceiptsFromEconomicEnterprisesTotal",
+        ];
+  
+        const responses = await axios.all(endpoints.map((endpoint) => axios.get(`${BASE_URL}/api/${endpoint}`)));
+  
+        setTaxOnBusinessTotal(parseFloat(responses[0].data.tax_on_business || 0));
+        setRegulatoryFeesTotal(parseFloat(responses[1].data.regulatory_fees || 0));
+        setServiceUserChargesTotal(parseFloat(responses[2].data.service_user_charges || 0));
+        setReceiptsFromEconomicEnterprisesTotal(parseFloat(responses[3].data.receipts_from_economic_enterprises || 0));
       } catch (error) {
-        console.error('Error fetching totals:', error);
+        console.error("Error fetching totals:", error);
       }
     };
+  
     fetchTotals();
   }, []);
 
@@ -466,6 +461,33 @@ const handleCloseRFEE = () => {
     // This triggers the filter in the useEffect
     setSearchQuery(pendingSearchQuery);
   };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedId) return;
+    
+    try {
+      const response = await fetch(`/api/deleteGF/${selectedId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Record deleted successfully");
+        setRows(prev => prev.filter(row => row.id !== selectedId));
+      } else {
+        alert(result.error || "Failed to delete record");
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      alert("Error deleting record");
+    } finally {
+      setOpenDeleteDialog(false);
+      setSelectedId(null);
+    }
+  };
+
+  if (loading) return <p>Loading data...</p>;
 
   return (
     <Box
@@ -772,7 +794,7 @@ const handleCloseRFEE = () => {
             m={1}
           >
             <TablePagination
-              rowsPerPageOptions={[5, 10]}
+              rowsPerPageOptions={[10, 15,20,30,50,100]}
               component="div"
               count={filteredData.length}
               rowsPerPage={rowsPerPage}
@@ -793,22 +815,15 @@ const handleCloseRFEE = () => {
       >
         <MenuItem onClick={handleViewClick}>View</MenuItem>
         <MenuItem onClick={handleEditClick}>Edit</MenuItem>
-        <MenuItem
-          onClick={() => {
-            console.log("Delete", selectedRow);
-            handleMenuClose();
-          }}
-        >
-          Delete
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            console.log("Download", selectedRow);
-            handleMenuClose();
-          }}
-        >
-          Download
-        </MenuItem>
+        <MenuItem 
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent event propagation
+                  setSelectedId(rows.id);
+                  setOpenDeleteDialog(true);
+                }}
+              >
+                Delete
+              </MenuItem>
       </Menu>
       {/* Popup for "Add" or "View" content */}
       {isDialogOpen && (
@@ -849,6 +864,38 @@ const handleCloseRFEE = () => {
         open={openDailyTable}
         onClose={handleCloseDailyTable}
       />
+
+      {/* Confirmation Dialog */}
+      <Dialog
+              open={openDeleteDialog}
+              onClose={() => setOpenDeleteDialog(false)}
+              maxWidth="xs"
+              fullWidth
+            >
+              <DialogTitle>Confirm Delete</DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  Are you sure you want to delete this record? This action cannot be undone.
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button 
+                  onClick={() => setOpenDeleteDialog(false)}
+                  color="primary"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleConfirmDelete}
+                  color="error"
+                  variant="contained"
+                >
+                  Confirm Delete
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+      
     </Box>
   );
 }

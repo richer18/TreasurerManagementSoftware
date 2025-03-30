@@ -2,9 +2,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import {
   Autocomplete,
   Box,
-  Button,
+  Button,Badge,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
@@ -22,11 +21,13 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import { format, parseISO } from 'date-fns';
 import PropTypes from 'prop-types';
 import React, { useEffect, useMemo, useState } from 'react';
 import DailyTablev2 from './components/Table/DailyTable';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import CommentsDialog from '../../RealPropertyTax/TableData/CommentsDialog';
 // Styled components for the table cells
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -78,32 +79,53 @@ const years = [
   { label: '2030', value: '2030' },
 ];
 
+const BASE_URL = "http://localhost:3001";
+
+ const formatDate = (dateInput) => {
+    if (!dateInput) return 'Invalid Date';
+    let date;
+    if (typeof dateInput === 'string') {
+      date = parseISO(dateInput);
+    } else if (dateInput instanceof Date) {
+      date = dateInput;
+    } else {
+      return 'Invalid Date';
+    }
+    if (isNaN(date)) return 'Invalid Date';
+    return format(date, 'MMMM d, yyyy');
+  };
+
 function DailyTable({ onDataFiltered, onBack }) {
   const [data, setData] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [currentComment, setCurrentComment] = useState('');
   const [currentRow, setCurrentRow] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
   const [viewOpen, setViewOpen] = useState(false);
   const [viewData, setViewData] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [commentCounts, setCommentCounts] = useState({});
+  const [openCommentDialog, setOpenCommentDialog] = useState(false);
+
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(
-          `http://192.168.101.108:3001/api/allDataGeneralFund?month=${selectedMonth}&year=${selectedYear}`
+        const response = await axios.get(
+          `${BASE_URL}/api/allDataGeneralFund`,
+          { params: { month: selectedMonth, year: selectedYear } } // ✅ Axios automatically formats query params
         );
-        const result = await response.json();
-        setData(result);
+  
+        setData(response.data);
+  
         if (onDataFiltered) {
-          onDataFiltered(result);
+          onDataFiltered(response.data);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       }
     };
+  
     fetchData();
   }, [selectedMonth, selectedYear, onDataFiltered]);
 
@@ -117,32 +139,29 @@ function DailyTable({ onDataFiltered, onBack }) {
   };
 
   const handleViewClick = () => {
-  const formattedDate = dayjs(currentRow?.DATE).format('YYYY-MM-DD');
-
-  if (!formattedDate) {
-    console.error('Current row or date is not defined.');
-    return;
-  }
-
-  console.log(`Requesting data for date: ${formattedDate}`);
-
-  axios
-    .get(`http://192.168.101.108:3001/api/viewalldataGeneralFundTableView?date=${encodeURIComponent(formattedDate)}`)
-    .then((response) => {
-      console.log('Received data:', response.data);
-      setViewData(response.data);
-      setViewOpen(true);
-    })
-    .catch((error) => {
-      console.error('Error fetching detailed data:', error);
-    });
-};
-
-  const handleCommentClick = () => {
-    setOpen(true);
-    setCurrentComment(currentRow.comments || '');
-    handleClose();
+    if (!currentRow?.DATE) {
+      console.error("Current row or date is not defined.");
+      return;
+    }
+  
+    const formattedDate = dayjs(currentRow.DATE).format("YYYY-MM-DD");
+    console.log(`Requesting data for date: ${formattedDate}`);
+  
+    axios
+      .get(`${BASE_URL}/api/viewalldataGeneralFundTableView`, {
+        params: { date: formattedDate }, // ✅ Cleaner way to add query parameters
+      })
+      .then((response) => {
+        console.log("Received data:", response.data);
+        setViewData(response.data);
+        setViewOpen(true);
+      })
+      .catch((error) => {
+        console.error("Error fetching detailed data:", error);
+      });
   };
+
+  
 
   const handleMonthChange = (event, value) => {
     setSelectedMonth(value ? value.value : '');
@@ -152,51 +171,43 @@ function DailyTable({ onDataFiltered, onBack }) {
     setSelectedYear(value ? value.value : '');
   };
 
-  const handleSaveComment = () => {
-  const date = currentRow?.DATE;
-
-  if (!date) {
-    console.error("No valid 'DATE' in currentRow");
-    return;
-  }
-
-  // Convert the date to the desired format
-  const formattedDate = dayjs(date).format('YYYY-MM-DD');
-
-  const payload = {
-    date: formattedDate,
-    comment: currentComment,
-    time: dayjs().format('HH:mm:ss'), // Current time
-    user: 'John Doe', // Replace with actual user
-  };
-
-  // POST the new comment
-  fetch('http://192.168.101.108:3001/api/dailyComments', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-    .then((res) => {
-      if (!res.ok) {
-        throw new Error('Failed to add comment');
+  const handleViewComments = async (date) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/getGFComments/${date}`);
+      console.log("Fetched Comments from API:", response.data); // Debugging
+  
+      if (response.status === 200 && response.data.length > 0) {
+        setComments(response.data); // Set comments
+        setOpenCommentDialog(true);
+      } else {
+        console.warn("No comments found for this date.");
+        setComments([]); // Clear comments
+        // setOpenCommentDialog(true);
       }
-      return res.json();
-    })
-    .then((data) => {
-      console.log('Comment saved successfully:', data);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    }
+  };
+  
+  useEffect(() => {
+    axios.get(`${BASE_URL}/api/commentGFCounts`)
+      .then((response) => {
+        setCommentCounts(response.data); // Store comment counts in state
+      })
+      .catch((error) => {
+        console.error("Error fetching comment counts:", error);
+      });
+  }, []);
 
-      // Optionally refresh comments or update UI
-      setOpen(false);
-      setCurrentComment('');
-    })
-    .catch((error) => {
-      console.error('Error saving comment:', error);
-    });
-};
 
 
   const handleViewClose = () => {
     setViewOpen(false);
+  };
+
+  const handleCommentDialogClose = () => {
+    setOpenCommentDialog(false);
+    setComments([]); // Clear comments when closing
   };
 
   const totalAmount = useMemo(() => {
@@ -293,28 +304,50 @@ function DailyTable({ onDataFiltered, onBack }) {
       <CenteredTableCell>{row['Receipts From Economic Enterprise']}</CenteredTableCell>
       <CenteredTableCell>{row['Service/User Charges']}</CenteredTableCell>
       <CenteredTableCell>{row['Overall Total']}</CenteredTableCell>
-      <CenteredTableCell>{row.comments}</CenteredTableCell>
+      <CenteredTableCell>
+      <Badge
+  badgeContent={commentCounts[dayjs(row.DATE).format("YYYY-MM-DD")]}
+  color="error"
+  overlap="circular"
+  invisible={!commentCounts[dayjs(row.DATE).format("YYYY-MM-DD")]}
+>
+  <IconButton onClick={() => handleViewComments(dayjs(row.DATE).format("YYYY-MM-DD"))}>
+    <VisibilityIcon color="primary" />
+  </IconButton>
+</Badge>
+</CenteredTableCell>
       <CenteredTableCell>
         <Button
-          aria-controls="simple-menu"
-          aria-haspopup="true"
-          onClick={(event) => handleClick(event, row)}
-          variant="contained"
-          color="primary"
+        variant="contained"
+        color="primary"
+        onClick={(event) => handleClick(event, row)}
+        sx={{ textTransform: 'none' }}
         >
           Action
-        </Button>
-        <Menu
-          id="simple-menu"
-          anchorEl={anchorEl}
-          keepMounted
-          open={Boolean(anchorEl)}
-          onClose={handleClose}
-        >
-          <MenuItem onClick={handleViewClick}>View</MenuItem>
-          
-          <MenuItem onClick={handleCommentClick}>Comment</MenuItem>
-        </Menu>
+          </Button>
+          <Menu
+  id="simple-menu"
+  anchorEl={anchorEl}
+  keepMounted
+  open={Boolean(anchorEl)}
+  onClose={handleClose}
+  slotProps={{
+    paper: {
+      elevation: 0, // Removes shadow
+      sx: { boxShadow: 'none' }, // Ensures no shadow
+    },
+  }}
+  anchorOrigin={{
+    vertical: 'bottom',
+    horizontal: 'right',
+  }}
+  transformOrigin={{
+    vertical: 'top',
+    horizontal: 'right',
+  }}
+>
+  <MenuItem onClick={handleViewClick}>View</MenuItem>
+</Menu>
       </CenteredTableCell>
     </StyledTableRow>
   ))}
@@ -329,45 +362,55 @@ function DailyTable({ onDataFiltered, onBack }) {
 </TableBody>
       </Table>
     </TableContainer>
-
-       {/* Comment Dialog */}
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>Comment</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Comment"
-            type="text"
-            fullWidth
-            value={currentComment}
-            onChange={(e) => setCurrentComment(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleSaveComment} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+     
 
       {/* View Dialog */}
-     <Dialog open={viewOpen} onClose={handleViewClose} fullWidth maxWidth="xl">
-  <DialogTitle>
-    <Box display="flex" alignItems="center" justifyContent="space-between">
-      <Typography variant="h6">Detailed View</Typography>
-      <IconButton edge="end" color="inherit" onClick={handleViewClose} aria-label="close">
-        <CloseIcon />
-      </IconButton>
-    </Box>
-  </DialogTitle>
-  <DialogContent>
-    <DailyTablev2 data={viewData} />
-  </DialogContent>
-</Dialog>
+      
+      <Dialog 
+      open={viewOpen} 
+      onClose={handleViewClose} 
+      fullWidth 
+      maxWidth="xl"
+      PaperProps={{
+        sx: {
+          borderRadius: 4,
+          overflow: 'hidden'
+        }
+      }}
+    >
+      <DialogTitle
+  sx={{
+    bgcolor: "primary.main",
+    color: "common.white",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  }}
+>
+  <Typography variant="h6" component="span">
+    Transaction Details - {dayjs(viewData?.[0]?.date).format("MMMM D, YYYY")}
+  </Typography>
+  <IconButton onClick={handleViewClose} sx={{ color: "common.white" }}>
+    <CloseIcon />
+  </IconButton>
+</DialogTitle>
+      
+      <DialogContent sx={{ p: 0 }}>
+        <DailyTablev2 
+          data={viewData} 
+          onClose={handleViewClose}
+          sx={{ border: 'none' }}
+        />
+      </DialogContent>
+    </Dialog>
+
+
+ <CommentsDialog
+        open={openCommentDialog}
+        onClose={handleCommentDialogClose}
+        comments={comments}
+        formatDate={formatDate}
+      />
     </>
   );
 }

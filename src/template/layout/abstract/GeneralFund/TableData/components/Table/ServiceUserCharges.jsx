@@ -28,6 +28,8 @@ const years = Array.from({ length: 100 }, (_, i) => ({
     value: 2030 - i,
 }));
 
+const BASE_URL = "http://192.168.101.108:3001";
+
 function ServiceUserCharges() {
    const [month, setMonth] = useState(null);
     const [day, setDay] = useState(null);
@@ -42,13 +44,13 @@ function ServiceUserCharges() {
     useEffect(() => {
     const fetchData = async () => {
         try {
-        const response = await axios.get('http://192.168.101.108:3001/api/general-fund-service-user-charges', {
-            params: {
-            month: month ? month.value : undefined,
-            day: day ? day.value : undefined,
-            year: year ? year.value : undefined,
-        },
-        });
+            const response = await axios.get(`${BASE_URL}/api/general-fund-service-user-charges`, {
+                params: {
+                    month: month ? month.value : undefined,
+                    day: day ? day.value : undefined,
+                    year: year ? year.value : undefined,
+                },
+            });
         setTaxData(response.data);
     } catch (error) {
         console.error('Error fetching tax data:', error.response ? error.response.data : error.message);

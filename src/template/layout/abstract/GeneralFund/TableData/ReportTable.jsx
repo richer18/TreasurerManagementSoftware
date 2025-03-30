@@ -44,6 +44,8 @@ const years = [
   { label: '2030', value: '2030' },
 ];
 
+const BASE_URL = "http://192.168.101.108:3001";
+
 function ReportTable({ onBack }) {
   const [month, setMonth] = useState({ label: 'January', value: '1' });
   const [year, setYear] = useState({ label: '2025', value: '2025' });
@@ -92,9 +94,9 @@ function ReportTable({ onBack }) {
       try {
         console.log("Fetching data for month:", month.value, "and year:", year.value); // Debug log
   
-        const response = await axios.get(`http://192.168.101.108:3001/api/generalFundDataReport`, {
+        const response = await axios.get(`${BASE_URL}/api/generalFundDataReport`, {
           params: { month: month.value, year: year.value },
-        });
+      });
   
         if (response.data.length > 0) {
           const filteredData = response.data.reduce(

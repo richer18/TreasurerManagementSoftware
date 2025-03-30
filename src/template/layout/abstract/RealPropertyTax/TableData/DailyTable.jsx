@@ -1,5 +1,5 @@
 import {
-  Autocomplete,
+  Autocomplete,Badge,
   Box,
   Button,
   Dialog,
@@ -13,7 +13,7 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
+  TableContainer,IconButton,
   TableHead,
   TableRow,
   TextField,
@@ -72,12 +72,20 @@ const months = [
 const years = [
   { label: '2023', value: '2023' },
   { label: '2024', value: '2024' },
+  { label: '2025', value: '2025' },
+  { label: '2026', value: '2026' },
+  { label: '2027', value: '2027' },
+  { label: '2028', value: '2028' },
+  { label: '2029', value: '2029' },
+  { label: '2030', value: '2030' },
 ];
 
 DailyTable.propTypes = {
   onDataFiltered: PropTypes.func.isRequired,
   onBack: PropTypes.func.isRequired,
 };
+
+const BASE_URL = "http://localhost:3001";
 
 function DailyTable({ onDataFiltered, onBack }) {
   const [data, setData] = useState([]);
@@ -89,17 +97,25 @@ function DailyTable({ onDataFiltered, onBack }) {
   const [year, setYear] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null); // For menu
   const [selectedDate, setSelectedDate] = useState(null);
-
   const [openCommentDialog, setOpenCommentDialog] = useState(false);
-  const [commentDetails, setCommentDetails] = useState(null);
+  const [commentCounts, setCommentCounts] = useState({});
+  const [comments, setComments] = useState([]);
 
+  useEffect(() => {
+    axios.get(`${BASE_URL}/api/commentRPTCounts`)
+      .then((response) => {
+        setCommentCounts(response.data); // Store comment counts in state
+      })
+      .catch((error) => {
+        console.error("Error fetching comment counts:", error);
+      });
+  }, []);
 
-  
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const response = await axios.get('http://192.168.101.108:3001/api/allData');
+        const response = await axios.get(`${BASE_URL}/api/allData`);
         if (response.status === 200) {
           const adjustedData = response.data.map((item, index) => ({
             // Map snake_case fields to camelCase fields
@@ -144,8 +160,6 @@ function DailyTable({ onDataFiltered, onBack }) {
     fetchAllData();
   }, [onDataFiltered]);
 
-  
-  
 
   const handleMenuClick = (event, row) => {
     setAnchorEl(event.currentTarget);
@@ -166,12 +180,7 @@ function DailyTable({ onDataFiltered, onBack }) {
   const handleDataUpdate = (updatedData) => {
     setData(updatedData);
   };
-
-  const handleCommentClick = () => {
-    setCurrentComment(currentRow.comments || '');
-    setOpenCommentDialogs(true);
-    handleMenuClose();
-  };
+ 
 
   const handleCommentClose = () => {
     setOpenCommentDialogs(false);
@@ -183,9 +192,9 @@ function DailyTable({ onDataFiltered, onBack }) {
 
   const handleSaveComment = async () => {
     try {
-      const user = 'currentUser'; // Replace with the actual logged-in user logic
+      const user = 'currentUser'; // Replace with actual logged-in user logic
   
-      await axios.post('http://192.168.101.108:3001/api/allDayComment', {
+      await axios.post(`${BASE_URL}/api/allDayComment`, {
         description: currentComment,
         user,
       });
@@ -297,21 +306,25 @@ function DailyTable({ onDataFiltered, onBack }) {
 
   const handleViewComments = async (date) => {
     try {
-      const response = await axios.get(`http://192.168.101.108:3001/api/getComments/${date}`);
-      if (response.status === 200) {
-        setCommentDetails(response.data); // Set the fetched comments
-        setOpenCommentDialog(true); // Open the dialog
+      const response = await axios.get(`${BASE_URL}/api/getRPTComments/${date}`);
+      console.log("Fetched Comments from API:", response.data); // Debugging
+  
+      if (response.status === 200 && response.data.length > 0) {
+        setComments(response.data); // Set comments
+        setOpenCommentDialog(true);
       } else {
-        console.error('Failed to fetch comments');
+        console.warn("No comments found for this date.");
+        setComments([]); // Clear comments
+        setOpenCommentDialog(true);
       }
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error("Error fetching comments:", error);
     }
   };
 
   const handleCommentDialogClose = () => {
     setOpenCommentDialog(false);
-    setCommentDetails(null);
+    setComments([]); // Clear comments when closing
   };
 
   return (
@@ -415,12 +428,16 @@ function DailyTable({ onDataFiltered, onBack }) {
                 <CenteredTableCell>{row.special.toFixed(2)}</CenteredTableCell>
                 <CenteredTableCell>{row.total.toFixed(2)}</CenteredTableCell>
                 <CenteredTableCell>
-  <Button
-    onClick={() => handleViewComments(row.date)} // Pass the date to fetch comments
-    sx={{ minWidth: 0, padding: 0 }} // Adjust the button to remove padding
+  <Badge
+    badgeContent={commentCounts[new Date(row.date).toISOString().split("T")[0]]}
+    color="error"
+    overlap="circular"
+    invisible={!commentCounts[new Date(row.date).toISOString().split("T")[0]]}
   >
-    <VisibilityIcon color="primary" />
-  </Button>
+    <IconButton onClick={() => handleViewComments(row.date)}>
+      <VisibilityIcon color="primary" />
+    </IconButton>
+  </Badge>
 </CenteredTableCell>
                 <CenteredTableCell>
                   <Button
@@ -445,7 +462,6 @@ function DailyTable({ onDataFiltered, onBack }) {
                     }}
                   >
                     <MenuItem onClick={handleViewClick}>VIEW</MenuItem>
-                    <MenuItem onClick={handleCommentClick}>COMMENT</MenuItem>
                   </Menu>
                 </CenteredTableCell>
               </StyledTableRow>
@@ -500,7 +516,7 @@ function DailyTable({ onDataFiltered, onBack }) {
         <CommentsDialog
         open={openCommentDialog}
         onClose={handleCommentDialogClose}
-        comments={commentDetails}
+        comments={comments}
         formatDate={formatDate}
       />
     </>
