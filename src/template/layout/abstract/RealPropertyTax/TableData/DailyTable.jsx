@@ -1,11 +1,12 @@
 import {
-  Autocomplete,Badge,
+  Autocomplete, Badge,
   Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   Menu,
   MenuItem,
   Paper,
@@ -13,7 +14,7 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,IconButton,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -25,9 +26,9 @@ import PropTypes from 'prop-types';
 import React, { useEffect, useMemo, useState } from 'react';
 import ViewDialog from './ViewDialog'; // Import the ViewDialog component
 
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CommentsDialog from './CommentsDialog';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -85,7 +86,7 @@ DailyTable.propTypes = {
   onBack: PropTypes.func.isRequired,
 };
 
-const BASE_URL = "http://localhost:3001";
+const BASE_URL = "http://192.168.101.108:3001";
 
 function DailyTable({ onDataFiltered, onBack }) {
   const [data, setData] = useState([]);

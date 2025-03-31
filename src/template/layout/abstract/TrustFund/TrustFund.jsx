@@ -2,9 +2,12 @@ import { keyframes } from "@emotion/react";
 import SearchIcon from "@mui/icons-material/Search";
 import {
   Autocomplete,
-  Box,Dialog,DialogActions,DialogContentText,DialogTitle,DialogContent,
+  Box,
   Button,
   Card,
+  Dialog, DialogActions,
+  DialogContent,
+  DialogContentText, DialogTitle,
   InputAdornment,
   Menu,
   MenuItem,
@@ -112,7 +115,7 @@ const years = [
   { label: "2029", value: "2029" },
 ];
 
-const BASE_URL = "http://localhost:3001"; // Define base URL
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
 
 function TrustFund() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);

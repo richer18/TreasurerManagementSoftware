@@ -1,22 +1,24 @@
+import DownloadIcon from '@mui/icons-material/Download';
+import PrintIcon from '@mui/icons-material/Print';
 import {
   Box,
   Button,
-  Dialog, DialogActions,Card,
+  Card,
+  Dialog, DialogActions,
   DialogContent,
   DialogTitle,
   Menu, MenuItem,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TablePagination,
-  TableRow,Typography,
+  TableRow,
   TextField,
+  Typography,
   styled
 } from '@mui/material';
-import PropTypes from 'prop-types';
-import React, { useState,useMemo } from 'react';
-import { format,parseISO } from 'date-fns';
 import axios from 'axios';
-import PrintIcon from '@mui/icons-material/Print';
-import DownloadIcon from '@mui/icons-material/Download';
+import { format, parseISO } from 'date-fns';
+import PropTypes from 'prop-types';
+import React, { useMemo, useState } from 'react';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.dark,
@@ -59,7 +61,7 @@ const formatDate = (dateInput) => {
   return format(date, 'MMMM d, yyyy');
 };
 
-const BASE_URL = "http://localhost:3001";
+const BASE_URL = "http://192.168.101.108:3001";
 
 const DailyTable_v2 = ({ data, onClose }) => {
   
