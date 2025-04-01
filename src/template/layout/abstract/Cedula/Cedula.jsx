@@ -106,7 +106,7 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString("en-US", options);
 };
 
-const BASE_URL = "http://localhost:3001"; // Define base URL
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
 
 
 // ------------------------

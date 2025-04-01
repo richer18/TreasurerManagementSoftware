@@ -82,20 +82,14 @@ function Cedula({ data, mode }) {
   const basicCommunityTax = 5.0;
 
   // Map data to form fields
-// const mapDataToForm = (data) => ({
-//   receipt: data?.['CTC NO'] || data?.CTCNO || '',
-//   taxpayerName: data?.['NAME'] || data?.OWNERNAME || '',
-//   taxToPay: data?.['TAX_DUE'] || data?.SALTAXDUE || '',
-//   userid: data?.['CASHIER'] || data?.CASHIER || '',
-//   ctcId: data?.['CTC_ID'] || data?.id || '', // Map the CTC_ID properly
-// });
-
 const mapDataToForm = (data) => ({
   receipt: data?.['CTC NO'] || data?.CTCNO || '',
   taxpayerName: data?.['NAME'] || data?.OWNERNAME || '',
-  taxToPay: data?.SALTAXDUE || '',
+  taxToPay: data?.['TAX_DUE'] || data?.SALTAXDUE || '',
   userid: data?.['CASHIER'] || data?.CASHIER || '',
+  ctcId: data?.['CTC_ID'] || data?.id || '', // Map the CTC_ID properly
 });
+
 
   // Populate form fields when editing
  useEffect(() => {

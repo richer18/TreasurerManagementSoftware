@@ -1,9 +1,9 @@
 import {
   Autocomplete,
-  Box,
+  Box,Badge,
   Button,
   Dialog,
-  DialogActions,
+  DialogTitle,
   DialogContent,
   Menu,
   MenuItem,
@@ -12,8 +12,7 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
-  TableFooter,
+  TableContainer,IconButton,
   TableHead,
   TableRow,
   TextField,
@@ -21,8 +20,13 @@ import {
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { format, parse } from 'date-fns';
-
+import { format, parse,parseISO } from 'date-fns';
+import dayjs from 'dayjs';
+import DailyTablev2 from '../components/dailytablev2';
+import CloseIcon from '@mui/icons-material/Close';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import axios from 'axios';
+import CommentsDialog from '../../RealPropertyTax/TableData/CommentsDialog';
 // Styled components for table cells
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -68,22 +72,22 @@ const years = [
 ];
 
 // Helper function to format the date
-const formatDate = (dateString) => {
-  try {
-    const date = new Date(dateString);
+ const formatDate = (dateInput) => {
+    if (!dateInput) return 'Invalid Date';
+    let date;
+    if (typeof dateInput === 'string') {
+      date = parseISO(dateInput);
+    } else if (dateInput instanceof Date) {
+      date = dateInput;
+    } else {
+      return 'Invalid Date';
+    }
     if (isNaN(date)) return 'Invalid Date';
-    return new Intl.DateTimeFormat('en-US', { 
-      month: 'short', 
-      day: '2-digit', 
-      year: 'numeric' 
-    }).format(date);
-  } catch (error) {
-    console.error('Date formatting error:', error);
-    return 'Invalid Date';
-  }
-};
+    return format(date, 'MMMM d, yyyy');
+  };
 
-const BASE_URL = "http://localhost:3001";
+
+const BASE_URL = "http://192.168.101.108:3001";
 
 function DailyTable({ onBack, setShowFilters }) {
   const [selectedMonth, setSelectedMonth] = useState(null);
@@ -91,20 +95,19 @@ function DailyTable({ onBack, setShowFilters }) {
   const [collectionData, setCollectionData] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRow, setCurrentRow] = useState(null); // Track the row clicked
-  const [openDialog, setOpenDialog] = useState(false); // Control dialog visibility
+  // const [openDialog, setOpenDialog] = useState(false); // Control dialog visibility
   const [viewData, setViewData] = useState([]);
+  const [viewOpen, setViewOpen] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [comments, setComments] = useState([]);
+    const [commentCounts, setCommentCounts] = useState({});
+    const [openCommentDialog, setOpenCommentDialog] = useState(false);
 
   const handleClose = () => {
     setAnchorEl(null);
   };
 
-  const filteredData = viewData.filter((row) =>
-    (row['CTC NO'] ? row['CTC NO'].toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
-    (row.NAME ? row.NAME.toLowerCase().includes(searchQuery.toLowerCase()) : false)
-  );
-
+ 
   // Fetch data when month or year changes
   useEffect(() => {
     const fetchCollectionData = async () => {
@@ -132,68 +135,75 @@ function DailyTable({ onBack, setShowFilters }) {
   };
 
   const handleViewClick = () => {
-    if (currentRow) {
-      try {
-        // Parse date from "Jan 02, 2025" to Date object
-        const parsedDate = parse(currentRow.DATE, 'MMM dd, yyyy', new Date());
-        
-        // Format to "YYYY-MM-DD" for MySQL
-        const formattedDate = format(parsedDate, 'yyyy-MM-dd');
-        
-        fetch(`${BASE_URL}/api/viewDailyCollectionDetailsCedula?date=${formattedDate}`)
-          .then((response) => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-          })
-          .then((data) => {
-            setViewData(Array.isArray(data) ? data : []);
-            setOpenDialog(true);
-          })
-          .catch((error) => {
-            console.error('Error fetching detailed data:', error);
-            setViewData([]);
-          });
-      } catch (error) {
-        console.error('Error parsing date:', error);
-      }
+    if (!currentRow) {
+      console.error("No row selected");
+      return;
     }
-    handleClose();
-  };
-
-  const handleCommentClick = () => {
-    if (currentRow) {
-      console.log(`Add comment for: ${currentRow.DATE}`);
-      // Handle adding a comment (e.g., open a modal)
-    }
-    handleClose();
-  };
-
-  const handleSaveComment = async (row) => {
-    const formattedDate = new Date(row.DATE).toISOString().split("T")[0]; // Convert to YYYY-MM-DD
   
     try {
-      const response = await fetch(`${BASE_URL}/api/saveCommentCedula`, { // Fixed template literal
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          date: formattedDate,
-          ctcNo: row["CTC NO"],
-          comment: row.COMMENT?.trim() || "", // Trim whitespace for cleanliness
-        }),
-      });
+      // Parse the date properly
+      const parsedDate = parse(currentRow.DATE, 'MMM dd, yyyy', new Date());
+      const formattedDate = format(parsedDate, 'yyyy-MM-dd');
   
-      if (!response.ok) {
-        const errorMessage = await response.text(); // Get server error message if available
-        throw new Error(`Failed to save comment: ${errorMessage}`);
-      }
+      console.log("Fetching data for date:", formattedDate);
   
-      console.log("Comment saved successfully");
+      fetch(`${BASE_URL}/api/viewDailyCollectionDetailsCedula?date=${formattedDate}`)
+        .then((response) => {
+          if (!response.ok) throw new Error('Network response was not ok');
+          return response.json();
+        })
+        .then((data) => {
+          setViewData(Array.isArray(data) ? data : []);
+          setViewOpen(true); // Ensure the dialog opens
+        })
+        .catch((error) => {
+          console.error('Error fetching detailed data:', error);
+          setViewData([]); // Clear data if an error occurs
+        });
     } catch (error) {
-      console.error("Error saving comment:", error.message);
+      console.error('Error parsing date:', error);
     }
   };
+
+  const handleViewComments = async (date) => {
+      try {
+        const response = await axios.get(`${BASE_URL}/api/getCedulaComments/${date}`);
+        console.log("Fetched Comments from API:", response.data); // Debugging
+    
+        if (response.status === 200 && response.data.length > 0) {
+          setComments(response.data); // Set comments
+          setOpenCommentDialog(true);
+        } else {
+          console.warn("No comments found for this date.");
+          setComments([]); // Clear comments
+          setOpenCommentDialog(true);
+        }
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+      }
+    };
+    
+    useEffect(() => {
+      axios.get(`${BASE_URL}/api/commentCedulaCounts`)
+        .then((response) => {
+          setCommentCounts(response.data); // Store comment counts in state
+        })
+        .catch((error) => {
+          console.error("Error fetching comment counts:", error);
+        });
+    }, []);
+
+  const handleViewClose = () => {
+    setViewOpen(false);
+  };
+
+  const handleCommentDialogClose = () => {
+    setOpenCommentDialog(false);
+    setComments([]); // Clear comments when closing
+  };
+  
+
+
 
   return (
     <Box
@@ -258,8 +268,6 @@ function DailyTable({ onBack, setShowFilters }) {
       </Box>
     </Box>
 
-      
-
       <TableContainer component={Paper}>
         <Table aria-label="daily data table">
           <TableHead>
@@ -282,7 +290,18 @@ function DailyTable({ onBack, setShowFilters }) {
                   <CenteredTableCell>{row.TAX_DUE}</CenteredTableCell>
                   <CenteredTableCell>{row.INTEREST}</CenteredTableCell>
                   <CenteredTableCell>{row.TOTAL}</CenteredTableCell>
-                  <CenteredTableCell>{row.COMMENT || 'N/A'}</CenteredTableCell>
+                  <CenteredTableCell>
+      <Badge
+  badgeContent={commentCounts[dayjs(row.DATE).format("YYYY-MM-DD")]}
+  color="error"
+  overlap="circular"
+  invisible={!commentCounts[dayjs(row.DATE).format("YYYY-MM-DD")]}
+>
+  <IconButton onClick={() => handleViewComments(dayjs(row.DATE).format("YYYY-MM-DD"))}>
+    <VisibilityIcon color="primary" />
+  </IconButton>
+</Badge>
+</CenteredTableCell>
                   <CenteredTableCell>
                     <Button
                       onClick={(event) => handleClick(event, row)}
@@ -297,7 +316,6 @@ function DailyTable({ onBack, setShowFilters }) {
                       onClose={handleClose}
                     >
                       <MenuItem onClick={handleViewClick}>View</MenuItem>
-                      <MenuItem onClick={handleCommentClick}>Comment</MenuItem>
                     </Menu>
                   </CenteredTableCell>
                 </TableRow>
@@ -311,117 +329,51 @@ function DailyTable({ onBack, setShowFilters }) {
         </Table>
       </TableContainer>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="lg">
-  <DialogContent>
-    <Typography variant="h5" fontWeight="bold" gutterBottom>
-      Detailed Data for {currentRow?.DATE}
-    </Typography>
+      <Dialog 
+  open={viewOpen} 
+  onClose={() => setViewOpen(false)}  // Ensure proper closing
+  fullWidth 
+  maxWidth="xl"
+  PaperProps={{
+    sx: {
+      borderRadius: 4,
+      overflow: 'hidden'
+    }
+  }}
+>
+            <DialogTitle
+        sx={{
+          bgcolor: "primary.main",
+          color: "common.white",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Typography variant="h6" component="span">
+          Transaction Details - {dayjs(viewData?.[0]?.DATE).format("MMMM D, YYYY")}
+        </Typography>
+        <IconButton onClick={handleViewClose} sx={{ color: "common.white" }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+            
+            <DialogContent sx={{ p: 0 }}>
+              <DailyTablev2 
+                data={viewData} 
+                onClose={handleViewClose}
+                sx={{ border: 'none' }}
+              />
+            </DialogContent>
+          </Dialog>
 
-    {/* Search Field */}
-    <TextField
-      fullWidth
-      variant="outlined"
-      size="small"
-      placeholder="Search by CTC NO or Name..."
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-      sx={{ mb: 2 }}
-    />
+           <CommentsDialog
+                  open={openCommentDialog}
+                  onClose={handleCommentDialogClose}
+                  comments={comments}
+                  formatDate={formatDate}
+                />
 
-    <TableContainer component={Paper}>
-    <Table stickyHeader aria-label="detailed data table">
-        <TableHead>
-          <TableRow>
-            <StyledTableCell>DATE</StyledTableCell>
-            <StyledTableCell>CTC NO</StyledTableCell>
-            <StyledTableCell>LOCAL TIN</StyledTableCell>
-            <StyledTableCell>NAME</StyledTableCell>
-            <StyledTableCell>BASIC</StyledTableCell>
-            <StyledTableCell>TAX DUE</StyledTableCell>
-            <StyledTableCell>INTEREST</StyledTableCell>
-            <StyledTableCell>TOTAL</StyledTableCell>
-            <StyledTableCell>CASHIER</StyledTableCell>
-            <StyledTableCell>COMMENTS</StyledTableCell>
-            <StyledTableCell>ACTION</StyledTableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredData.length > 0 ? (
-            filteredData.map((row, index) => (
-              <TableRow key={`${row['CTC NO']}-${index}`}>
-                <CenteredTableCell style={{ whiteSpace: 'nowrap' }}>
-                  {formatDate(row.DATE)}
-                </CenteredTableCell>
-                <CenteredTableCell>{row['CTC NO']}</CenteredTableCell>
-                <CenteredTableCell>{row.LOCAL}</CenteredTableCell>
-                <CenteredTableCell>{row.NAME}</CenteredTableCell>
-                <CenteredTableCell>{row.BASIC}</CenteredTableCell>
-                <CenteredTableCell>{row.TAX_DUE}</CenteredTableCell>
-                <CenteredTableCell>{row.INTEREST}</CenteredTableCell>
-                <CenteredTableCell>{row.TOTAL}</CenteredTableCell>
-                <CenteredTableCell>{row.CASHIER}</CenteredTableCell>
-                <CenteredTableCell>
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    value={row.COMMENT || ''}
-                    onChange={(e) => {
-                      const updatedData = [...viewData];
-                      updatedData[index].COMMENT = e.target.value;
-                      setViewData(updatedData);
-                    }}
-                  />
-                </CenteredTableCell>
-                <CenteredTableCell>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={() => handleSaveComment(row)}
-                  >
-                    Save
-                  </Button>
-                </CenteredTableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <CenteredTableCell colSpan={11} align="center">
-                No matching records found
-              </CenteredTableCell>
-            </TableRow>
-          )}
-        </TableBody>
-
-        {/* Overall Total Row */}
-        
-        <TableFooter>
-          <TableRow>
-            <StyledTableCell colSpan={4} align="right"><b>Overall Total:</b></StyledTableCell>
-            <StyledTableCell>
-              <b>{filteredData.reduce((sum, row) => sum + (parseFloat(row.BASIC) || 0), 0).toFixed(2)}</b>
-            </StyledTableCell>
-            <StyledTableCell>
-              <b>{filteredData.reduce((sum, row) => sum + (parseFloat(row.TAX_DUE) || 0), 0).toFixed(2)}</b>
-            </StyledTableCell>
-            <StyledTableCell>
-              <b>{filteredData.reduce((sum, row) => sum + (parseFloat(row.INTEREST) || 0), 0).toFixed(2)}</b>
-            </StyledTableCell>
-            <StyledTableCell>
-              <b>{filteredData.reduce((sum, row) => sum + (parseFloat(row.TOTAL) || 0), 0).toFixed(2)}</b>
-            </StyledTableCell>
-            <StyledTableCell colSpan={3}></StyledTableCell>
-          </TableRow>
-        </TableFooter>
-      </Table>
-    </TableContainer>
-  </DialogContent>
-  <DialogActions>
-    <Button onClick={() => setOpenDialog(false)} color="primary">
-      Close
-    </Button>
-  </DialogActions>
-</Dialog>
     </Box>
   );
 }

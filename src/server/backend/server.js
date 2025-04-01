@@ -147,6 +147,21 @@ app.post("/api/updateTFComment", async (req, res) => {
   }
 });
 
+app.post("/api/updateCedulaComment", async (req, res) => {
+  const { CTCNO , COMMENT } = req.body;
+
+  try {
+    await db.query(
+      "UPDATE cedula SET COMMENT = ? WHERE CTCNO  = ?",
+      [COMMENT, CTCNO ]
+    );
+    res.status(200).json({ message: "Comment updated successfully" });
+  } catch (error) {
+    console.error("Error updating comment:", error);
+    res.status(500).json({ error: "Database update failed" });
+  }
+});
+
 
 // Update comment for all under date
 app.post('/api/allDayComment', (req, res) => {
@@ -207,6 +222,23 @@ app.post("/api/insertTFComment", async (req, res) => {
   try {
     await db.query(
       "INSERT INTO tf_comment (date, receipt_no, date_comment, name_client, description, user, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+      [date, receipt_no, date_comment, name_client, description, user]
+    );
+    res.status(200).json({ message: "Comment inserted successfully" });
+  } catch (error) {
+    console.error("Error inserting comment:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/insertCedulaComment", async (req, res) => {
+  const { date, receipt_no, date_comment, name_client, description, user } = req.body;
+
+  console.log("Received data for insertion:", { date, receipt_no, date_comment, name_client, description, user });
+
+  try {
+    await db.query(
+      "INSERT INTO cedula_comment (date, receipt_no, date_comment, name_client, description, user, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
       [date, receipt_no, date_comment, name_client, description, user]
     );
     res.status(200).json({ message: "Comment inserted successfully" });
@@ -278,6 +310,28 @@ app.get('/api/commentTFCounts', (req, res) => {
     }
   });
 });
+
+app.get('/api/commentCedulaCounts', (req, res) => {
+  const query = `
+    SELECT DATE_FORMAT(date, "%Y-%m-%d") AS formatted_date, COUNT(*) as count 
+    FROM cedula_comment 
+    GROUP BY formatted_date
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching comment counts:', err);
+      res.status(500).send('Error fetching comment counts');
+    } else {
+      const counts = {};
+      results.forEach((row) => {
+        counts[row.formatted_date] = row.count;  // Use formatted_date instead of full timestamp
+      });
+      res.json(counts);
+    }
+  });
+});
+
 
 
 
@@ -379,6 +433,32 @@ app.get('/api/getTFComments/:date', (req, res) => {
                         user, 
                         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
                  FROM tf_comment 
+                 WHERE date = ? 
+                 ORDER BY created_at DESC`;
+
+  db.query(query, [date], (err, results) => {
+      if (err) {
+          console.error('Error fetching comments:', err);
+          return res.status(500).send('Error fetching comments');
+      }
+
+      res.json(results); // Send formatted data
+  });
+});
+
+app.get('/api/getCedulaComments/:date', (req, res) => {
+  const { date } = req.params;
+
+  // Fetch comments based on the date of the receipt_no
+  const query = `SELECT id, 
+                        DATE_FORMAT(date, '%Y-%m-%d') AS date, 
+                        receipt_no, 
+                        DATE_FORMAT(date_comment, '%Y-%m-%d %H:%i:%s') AS date_comment, 
+                        name_client, 
+                        description, 
+                        user, 
+                        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+                 FROM cedula_comment 
                  WHERE date = ? 
                  ORDER BY created_at DESC`;
 
@@ -3394,25 +3474,26 @@ app.get('/api/viewalldataTrustFundTableView', (req, res) => {
 // Define the route to get the data
 app.get('/api/cedula', (req, res) => {
   const query = `
-      SELECT
-      DATEISSUED AS DATE,
-      CTCNO AS 'CTC NO',
-      LOCAL_TIN AS LOCAL,
-      OWNERNAME AS NAME,
-      BASICTAXDUE AS BASIC,
-      BUSTAXAMOUNT AS BUSTAXAMOUNT,
-      BUSTAXDUE AS BUSTAXDUE,
-      SALTAXAMOUNT AS SALTAXAMOUNT,
-      SALTAXDUE AS SALTAXDUE,
-      RPTAXAMOUNT AS RPTAXAMOUNT,
-      RPTAXDUE AS RPTAXDUE,
-      (BUSTAXDUE + SALTAXDUE + RPTAXDUE) AS TAX_DUE,
-      INTEREST AS INTEREST,
-      (BASICTAXDUE + BUSTAXDUE + SALTAXDUE + RPTAXDUE + INTEREST) AS TOTALAMOUNTPAID,
-      USERID AS CASHIER
-      FROM
-      cedula;
-  `;
+  SELECT
+    DATEISSUED AS DATE,
+    CTCNO AS 'CTC NO',
+    LOCAL_TIN AS LOCAL,
+    OWNERNAME AS NAME,
+    BASICTAXDUE AS BASIC,
+    BUSTAXAMOUNT AS BUSTAXAMOUNT,
+    BUSTAXDUE AS BUSTAXDUE,
+    SALTAXAMOUNT AS SALTAXAMOUNT,
+    SALTAXDUE AS SALTAXDUE,
+    RPTAXAMOUNT AS RPTAXAMOUNT,
+    RPTAXDUE AS RPTAXDUE,
+    (BUSTAXDUE + SALTAXDUE + RPTAXDUE) AS TAX_DUE,
+    INTEREST AS INTEREST,
+    (BASICTAXDUE + BUSTAXDUE + SALTAXDUE + RPTAXDUE + INTEREST) AS TOTALAMOUNTPAID,
+    USERID AS CASHIER,
+    COMMENT AS COMMENTS
+  FROM
+    cedula;
+`;
 
   db.query(query, (err, results) => {
       if (err) {
@@ -4039,6 +4120,52 @@ app.post("/api/update-report", (req, res) => {
   });
 });
 
+app.post('/api/deleteCedulaComment', async (req, res) => {
+  try {
+    const { receipt_no } = req.body;
+    
+    if (!receipt_no) {
+      return res.status(400).json({ error: 'Receipt number is required' });
+    }
+
+    const [result] = await pool.query(
+      'DELETE FROM cedula_comment WHERE receipt_no = ?',
+      [receipt_no]
+    );
+    
+    res.status(200).json({
+      success: true,
+      affectedRows: result.affectedRows
+    });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ error: 'Failed to delete comment' });
+  }
+});
+
+app.post('/api/clearCedulaComment', async (req, res) => {
+  try {
+    const { CTCNO } = req.body;
+    
+    if (!CTCNO) {
+      return res.status(400).json({ error: 'CTC number is required' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE cedula SET COMMENT = "" WHERE CTCNO = ?',
+      [CTCNO]
+    );
+    
+    res.status(200).json({
+      success: true,
+      affectedRows: result.affectedRows
+    });
+  } catch (error) {
+    console.error('Error clearing comment:', error);
+    res.status(500).json({ error: 'Failed to clear comment' });
+  }
+});
+
 
 
 app.get('/api/viewDailyCollectionDetailsCedula', (req, res) => {
@@ -4048,19 +4175,26 @@ app.get('/api/viewDailyCollectionDetailsCedula', (req, res) => {
   const formattedDate = new Date(date).toISOString().slice(0, 19).replace('T', ' ');
 
   const query = `
-    SELECT 
-      DATE_FORMAT(DATEISSUED, '%Y-%m-%d') AS DATE,
-      CTCNO AS "CTC NO",
-      LOCAL_TIN AS LOCAL,
-      OWNERNAME AS NAME,
-      BASICTAXDUE AS BASIC,
-      (BUSTAXDUE + SALTAXDUE + RPTAXDUE) AS TAX_DUE,
-      INTEREST,
-      (BUSTAXDUE + SALTAXDUE + RPTAXDUE + INTEREST) AS TOTAL,
-      USERID AS CASHIER,
-      COMMENT
-    FROM cedula
-    WHERE DATE(DATEISSUED) = ?`;
+  SELECT 
+    DATE_FORMAT(DATEISSUED, '%Y-%m-%d') AS DATE,
+    CTCNO AS "CTC NO",
+    NULLIF(LOCAL_TIN, '') AS LOCAL,
+    NULLIF(OWNERNAME, '') AS NAME,
+    COALESCE(BASICTAXDUE, 0) AS BASIC,
+    COALESCE(BUSTAXDUE, 0) + 
+    COALESCE(SALTAXDUE, 0) + 
+    COALESCE(RPTAXDUE, 0) AS TAX_DUE,
+    COALESCE(INTEREST, 0) AS INTEREST,
+    COALESCE(BASICTAXDUE, 0) + 
+    (COALESCE(BUSTAXDUE, 0) + 
+     COALESCE(SALTAXDUE, 0) + 
+     COALESCE(RPTAXDUE, 0)) + 
+    COALESCE(INTEREST, 0) AS TOTAL,
+    NULLIF(USERID, '') AS CASHIER,
+    NULLIF(COMMENT, '') AS COMMENT
+  FROM cedula
+  WHERE DATE(DATEISSUED) = ?
+  ORDER BY CTCNO ASC`;
 
   db.query(query, [formattedDate], (err, results) => {
     if (err) {
@@ -4071,28 +4205,28 @@ app.get('/api/viewDailyCollectionDetailsCedula', (req, res) => {
   });
 });
 
-app.post('/api/saveCommentCedula', (req, res) => {
-  const { date, ctcNo, comment } = req.body;
+// app.post('/api/saveCommentCedula', (req, res) => {
+//   const { date, ctcNo, comment } = req.body;
 
-  const query = `
-    UPDATE cedula 
-    SET COMMENT = ? 
-    WHERE DATE(DATEISSUED) = ? AND CTCNO = ?
-  `;
+//   const query = `
+//     UPDATE cedula 
+//     SET COMMENT = ? 
+//     WHERE DATE(DATEISSUED) = ? AND CTCNO = ?
+//   `;
 
-  db.query(query, [comment, date, ctcNo], (err, result) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
+//   db.query(query, [comment, date, ctcNo], (err, result) => {
+//     if (err) {
+//       console.error('Database error:', err);
+//       return res.status(500).json({ error: 'Database error' });
+//     }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Record not found' });
-    }
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({ error: 'Record not found' });
+//     }
 
-    res.json({ message: 'Comment updated successfully' });
-  });
-});
+//     res.json({ message: 'Comment updated successfully' });
+//   });
+// });
 
 
 // Define the API endpoint to fetch the report based on month & year

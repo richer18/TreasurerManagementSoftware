@@ -60,7 +60,7 @@ function CedulaFundViewTable({ data }) {
            <TableCell align="center">{row.INTEREST}</TableCell>
            <TableCell align="center">{row.TOTALAMOUNTPAID}</TableCell>
            <TableCell align="center">{row.CASHIER}</TableCell>
-           <TableCell align="center">{row.COMMENT}</TableCell>
+           <TableCell align="center">{row.COMMENTS}</TableCell>
            <TableCell align="center">{row.DATALASTEDITED}</TableCell>
            
          </TableRow>
