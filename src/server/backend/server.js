@@ -18,21 +18,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-const dbConfig = {
-  host: '192.168.101.108',
-  user: 'treasurer_root2',
-  password: '$p4ssworD!',
-  database: 'treasurer_management_app',
-  port: 3307
-};
-
 // const dbConfig = {
-//   host: 'localhost',
-//   user: 'root',
-//   password: '',
+//   host: '192.168.101.108',
+//   user: 'treasurer_root2',
+//   password: '$p4ssworD!',
 //   database: 'treasurer_management_app',
 //   port: 3307
 // };
+
+const dbConfig = {
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'treasurer_management_app',
+  port: 3307
+};
 
 const dbConfigs = {
   host: 'localhost',
@@ -4229,47 +4229,6 @@ app.get('/api/viewDailyCollectionDetailsCedula', (req, res) => {
 // });
 
 
-// Define the API endpoint to fetch the report based on month & year
-app.get("/api/fetch-report-json", async (req, res) => {
-  const { month, year } = req.query;
-
-  console.log(`Received request for Month: ${month}, Year: ${year}`);
-
-  if (!month || !year || isNaN(month) || isNaN(year)) {
-    return res.status(400).json({ error: "Valid Month and Year are required." });
-  }
-
-  const monthNames = [
-    "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
-    "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
-  ];
-
-  const monthIndex = parseInt(month, 10) - 1;
-  if (monthIndex < 0 || monthIndex > 11) {
-    return res.status(400).json({ error: "Invalid month provided." });
-  }
-
-  const monthName = monthNames[monthIndex];
-
-  const filePath = path.join(
-    "C:", "xampp", "htdocs", "TreasurerManagementSoftware",
-    "my-app", "src", "template", "layout", "reports",
-    "FullReport", "components", year, monthName, "data.json"
-  );
-
-  console.log(`Looking for file at: ${filePath}`);
-
-  // ✅ FIX: Use fs.promises properly
-  try {
-    await fs.promises.access(filePath); // Checks if file exists
-    const data = await fs.promises.readFile(filePath, "utf8"); // Read JSON
-    console.log(`Successfully read data from: ${filePath}`);
-    return res.json(JSON.parse(data));
-  } catch (err) {
-    console.error(`Error accessing file: ${filePath}`, err.message);
-    return res.status(404).json({ error: "Report not found for the selected month and year." });
-  }
-});
 
 app.post("/api/save-adjustment", (req, res) => {
   const { date, column, value } = req.body;

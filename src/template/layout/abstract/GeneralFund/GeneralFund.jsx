@@ -174,8 +174,7 @@ const [openDailyTable, setOpenDailyTable] = useState(false);
       severity: "info",
     });
 
-    const [loading, setLoading] = useState(true);
-
+  
 
   // Fetch main table data on mount
   useEffect(() => {
@@ -187,7 +186,7 @@ const [openDailyTable, setOpenDailyTable] = useState(false);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
-        setLoading(false);
+      
       }
     };
   
@@ -489,8 +488,7 @@ const handleCloseRFEE = () => {
       setSelectedId(null);
     }
   };
-
-  if (loading) return <p>Loading data...</p>;
+  
 
   return (
     <Box

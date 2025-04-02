@@ -4,7 +4,7 @@ import {
   Box,
   Button,
   Dialog,
-  DialogActions,
+  DialogActions,InputAdornment,Chip,
   DialogContent,
   DialogTitle,
   Grid,
@@ -23,9 +23,17 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import React, { useCallback, useEffect, useState } from 'react';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
+import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
+import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
+import GenerateReport from './GenerateReport';
+// Add this near the top of your component, with other constants
+const months = [
+  "January", "February", "March", "April", "May", "June", 
+  "July", "August", "September", "October", "November", "December"
+];
 
-
-const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+const BASE_URL = "http://localhost:3001"; // Define base URL
 
 function FullReport() {
   const [month, setMonth] = useState("1");
@@ -39,6 +47,12 @@ function FullReport() {
   const [editingField, setEditingField] = useState(null);
   const [inputValues, setInputValues] = useState({}); // Temporary input values
 
+  const [reportDialog, setReportDialog] = useState({
+    open: false,
+    status: 'idle', // 'idle' | 'loading' | 'success' | 'error'
+    progress: 0
+  });
+
   // Then inside your component:
   const theme = useTheme();
 
@@ -48,8 +62,7 @@ function FullReport() {
   const [dialogInputValue, setDialogInputValue] = useState("");
   const [isAdding, setIsAdding] = useState(true); // Track if adding or subtracting
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+
   const [selectedDate, setSelectedDate] = useState(null);
   
 
@@ -96,33 +109,7 @@ useEffect(() => {
   return () => controller.abort(); // Cleanup function to cancel fetch
 }, []);
 
-  const fetchData = async () => {
-    if (!month || !year) {
-      setError("Please select both Month and Year.");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(
-        `${BASE_URL}/api/fetch-report-json?month=${month}&year=${year}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const jsonData = await response.json();
-      setData(jsonData);
-    } catch (error) {
-      setError("Failed to fetch data. Please try again.");
-      console.error("Fetch error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   const filteredData = React.useMemo(
     () =>
@@ -403,82 +390,180 @@ const formatDateToYYYYMMDD = (dateString) => {
       );
     }
   };
+
+  const handleGenerateReport = () => {
+    // Open dialog in loading state
+    setReportDialog({
+      open: true,
+      status: 'loading',
+      progress: 0
+    });
+
+    // Simulate report generation
+    const interval = setInterval(() => {
+      setReportDialog(prev => {
+        const newProgress = prev.progress + 10;
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          return { ...prev, status: 'success', progress: 100 };
+        }
+        return { ...prev, progress: newProgress };
+      });
+    }, 300);
+  };
+
+  const handleCloseDialog = () => {
+    setReportDialog({ ...reportDialog, open: false });
+  };
+  
+  const handleExportCSV = () => {
+    // Your CSV export logic
+    console.log("Exporting to CSV", filteredData);
+  };
   return (
-    <div>
-      <Typography variant="h4" gutterBottom>
-        Full Report
-      </Typography>
-      <Grid container spacing={2} style={{ marginBottom: "20px" }}>
-        <Grid item xs={6} sm={4}>
-          <TextField
-            select
-            fullWidth
-            label="Month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            variant="outlined"
-          >
-            <MenuItem value="">All</MenuItem>
-            {[
-              "January",
-              "February",
-              "March",
-              "April",
-              "May",
-              "June",
-              "July",
-              "August",
-              "September",
-              "October",
-              "November",
-              "December",
-            ].map((m, index) => (
-              <MenuItem key={index} value={index + 1}>
-                {m}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid item xs={6} sm={4}>
-          <TextField
-            fullWidth
-            label="Year"
-            type="number"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            variant="outlined"
-            placeholder="e.g., 2025"
-          />
-        </Grid>
-        <Grid
-          item
-          xs={6}
-          sm={4}
-          style={{ display: "flex", alignItems: "center" }}
-        >
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={fetchData}
-            fullWidth
-          >
-            Fetch Data
-          </Button>
-        </Grid>
-      </Grid>
+    <div style={{ padding: "24px", backgroundColor: "#f5f7fa" }}>
+    <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, color: theme.palette.primary.dark }}>
+          Financial Report Summary
+        </Typography>
+        <Chip 
+          label={`${month ? months[month-1] : "All Months"} ${year || ""}`.trim()} 
+          color="primary" 
+          variant="outlined"
+          sx={{ fontSize: "0.875rem", fontWeight: 500 }}
+        />
+      </Box>
+  
+     {/* Filter and Actions Container */}
+<Box sx={{
+  display: 'flex',
+  flexDirection: { xs: 'column', sm: 'row' },
+  gap: 2,
+  alignItems: { xs: 'stretch', sm: 'center' },
+  mb: 4,
+  backgroundColor: 'background.paper',
+  p: 3,
+  borderRadius: 2,
+  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+}}>
+  {/* Filter Controls */}
+  <Box sx={{
+    display: 'flex',
+    flex: 1,
+    gap: 2,
+    flexDirection: { xs: 'column', sm: 'row' },
+    minWidth: { sm: '400px' }
+  }}>
+    {/* Month Selector */}
+    <TextField
+      select
+      fullWidth
+      label="Month"
+      value={month}
+      onChange={(e) => setMonth(e.target.value)}
+      variant="outlined"
+      size="small"
+      sx={{
+        minWidth: 120,
+        "& .MuiOutlinedInput-root": {
+          borderRadius: "6px",
+          backgroundColor: "background.default"
+        }
+      }}
+    >
+      <MenuItem value="">All Months</MenuItem>
+      {[
+        "January", "February", "March", "April", "May", "June", 
+        "July", "August", "September", "October", "November", "December"
+      ].map((m, index) => (
+        <MenuItem key={index} value={index + 1}>
+          {m}
+        </MenuItem>
+      ))}
+    </TextField>
 
-      {/* Error Message */}
-      {error && <Typography color="error">{error}</Typography>}
+    {/* Year Input */}
+    <TextField
+      fullWidth
+      label="Year"
+      type="number"
+      value={year}
+      onChange={(e) => setYear(e.target.value)}
+      variant="outlined"
+      size="small"
+      placeholder="e.g., 2025"
+      sx={{
+        minWidth: 120,
+        "& .MuiOutlinedInput-root": {
+          borderRadius: "6px",
+          backgroundColor: "background.default"
+        }
+      }}
+      InputProps={{
+        inputProps: { 
+          min: 2000, 
+          max: new Date().getFullYear() + 5 
+        }
+      }}
+    />
+  </Box>
 
-      {/* Loading Indicator */}
-      {loading ? <Typography>Loading data...</Typography> : null}
-
+  {/* Action Buttons */}
+  <Box sx={{
+    display: 'flex',
+    gap: 2,
+    flexShrink: 0,
+    width: { xs: '100%', sm: 'auto' },
+    '& > *': {
+      flex: { xs: 1, sm: '0 0 auto' }
+    }
+  }}>
+    <Button
+      variant="contained"
+      color="primary"
+      startIcon={<DescriptionOutlined />}
+      onClick={handleGenerateReport}
+      sx={{
+        borderRadius: "6px",
+        textTransform: "none",
+        px: 3,
+        boxShadow: 'none',
+        '&:hover': {
+          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)'
+        }
+      }}
+    >
+      Generate Report
+    </Button>
+    
+    <Button
+      variant="outlined"
+      color="primary"
+      startIcon={<FileDownloadOutlined />}
+      onClick={handleExportCSV}
+      sx={{
+        borderRadius: "6px",
+        textTransform: "none",
+        px: 3,
+        borderWidth: '2px',
+        '&:hover': {
+          borderWidth: '2px'
+        }
+      }}
+    >
+      Export CSV
+    </Button>
+  </Box>
+</Box>
+  
       <TableContainer
         component={Paper}
         sx={{
-          borderRadius: 4,
-          boxShadow: 3,
+          borderRadius: 3,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
           overflow: "hidden",
+          border: "1px solid #e0e0e0",
           "& .MuiTableCell-root": {
             py: 1.5,
             fontSize: "0.875rem",
@@ -500,14 +585,15 @@ const formatDateToYYYYMMDD = (dateString) => {
               ].map((header) => (
                 <TableCell
                   key={header}
-                  align="center" // Centers content horizontally
+                  align="center"
                   sx={{
                     fontWeight: 700,
                     fontSize: "0.9rem",
                     backgroundColor: theme.palette.primary.main,
                     color: theme.palette.common.white,
-                    borderRight: "1px solid rgba(224, 224, 224, 0.5)",
+                    borderRight: "1px solid rgba(255, 255, 255, 0.2)",
                     "&:last-child": { borderRight: "none" },
+                    py: 1.8,
                   }}
                 >
                   {header}
@@ -522,102 +608,140 @@ const formatDateToYYYYMMDD = (dateString) => {
                   <TableRow
                     sx={{
                       backgroundColor: index % 2 === 0 ? "#fafafa" : "#ffffff",
-                      transition: "background-color 0.2s",
-                      "&:hover": { backgroundColor: "#f0f4ff" },
+                      transition: "all 0.2s",
+                      "&:hover": { 
+                        backgroundColor: "#f0f4ff",
+                        transform: "translateY(-1px)",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+                      },
                     }}
                   >
                     {/* Date Cell */}
-                    <TableCell sx={{ fontWeight: 500, textAlign: "center" }}>
+                    <TableCell sx={{ 
+                      fontWeight: 500, 
+                      textAlign: "center",
+                      color: theme.palette.text.secondary
+                    }}>
                       {new Intl.DateTimeFormat("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
                       }).format(new Date(row.date))}
                     </TableCell>
-     
-                   {/* Editable Value Cells */}
-                   {/* Editable Value Cells */}
-{["ctc", "rpt", "gfAndTf"].map((field) => (
-  <TableCell key={field} sx={{ textAlign: "center", position: "relative" }}>
-    {editingField?.row === index && editingField?.field === field ? (
-      <TextField
-        value={inputValues[`${index}-${field}`] || ""}
-        onChange={(e) => handleInputChange(index, field, e.target.value)}
-        size="small"
-        type="number"
-        sx={{
-          width: 100,
-          "& .MuiInputBase-input": {
-            fontWeight: 500,
-            textAlign: "center",
-            py: 0.5,
-          },
-        }}
-        autoFocus
-      />
-    ) : (
-      <>
-        <span style={{ fontWeight: 500 }}>{row[field].toLocaleString()}</span>
-
-        {/* Show Tooltip only if there is an adjustment */}
-        {(row.adjustments?.[field]?.under > 0 || row.adjustments?.[field]?.over > 0) && (
-          <Tooltip
-            title={`
-              ${row.adjustments[field].under > 0 ? `Under: ${row.adjustments[field].under.toLocaleString()}` : ""}
-              ${row.adjustments[field].over > 0 ? ` Over: ${row.adjustments[field].over.toLocaleString()}` : ""}
-            `}
-          >
-            <ErrorIcon
-              color="error"
-              sx={{
-                fontSize: 16,
-                ml: 0.5,
-                verticalAlign: "text-top",
-              }}
-            />
-          </Tooltip>
-        )}
-      </>
-    )}
-
-    {/* Show Buttons when row is editable */}
-    {editableRow === index && showButtons && (
-      <Box sx={{ display: "flex", gap: 1, justifyContent: "center", mt: 1 }}>
-        <Button
-          variant="contained"
-          color="success"
-          size="small"
-          onClick={() => handleUnderClick(index, field)}
-          sx={{ minWidth: 80, textTransform: "none" }}
-        >
-          Under
-        </Button>
-        <Button
-          variant="contained"
-          color="error"
-          size="small"
-          onClick={() => handleOverClick(index, field)}
-          sx={{ minWidth: 80, textTransform: "none" }}
-        >
-          Over
-        </Button>
-      </Box>
-    )}
-  </TableCell>
-))}
-
+       
+                    {/* Editable Value Cells */}
+                    {["ctc", "rpt", "gfAndTf"].map((field) => (
+                      <TableCell key={field} sx={{ 
+                        textAlign: "center", 
+                        position: "relative",
+                        minWidth: 120
+                      }}>
+                        {editingField?.row === index && editingField?.field === field ? (
+                          <TextField
+                            value={inputValues[`${index}-${field}`] || ""}
+                            onChange={(e) => handleInputChange(index, field, e.target.value)}
+                            size="small"
+                            type="number"
+                            sx={{
+                              width: 100,
+                              "& .MuiInputBase-input": {
+                                fontWeight: 500,
+                                textAlign: "center",
+                                py: 0.5,
+                              },
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{ fontWeight: 600 }}>
+                              ₱{row[field].toLocaleString()}
+                            </span>
+  
+                            {(row.adjustments?.[field]?.under > 0 || row.adjustments?.[field]?.over > 0) && (
+                              <Tooltip
+                                title={
+                                  <Box>
+                                    {row.adjustments[field].under > 0 && (
+                                      <Box sx={{ color: theme.palette.error.main }}>
+                                        Under: ₱{row.adjustments[field].under.toLocaleString()}
+                                      </Box>
+                                    )}
+                                    {row.adjustments[field].over > 0 && (
+                                      <Box sx={{ color: theme.palette.success.main }}>
+                                        Over: ₱{row.adjustments[field].over.toLocaleString()}
+                                      </Box>
+                                    )}
+                                  </Box>
+                                }
+                              >
+                                <ErrorIcon
+                                  color="error"
+                                  sx={{
+                                    fontSize: 16,
+                                    ml: 0.5,
+                                    verticalAlign: "middle",
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        )}
+  
+                        {editableRow === index && showButtons && (
+                          <Box sx={{ 
+                            display: "flex", 
+                            gap: 1, 
+                            justifyContent: "center", 
+                            mt: 1,
+                            "& .MuiButton-root": {
+                              borderRadius: "6px",
+                              boxShadow: "none"
+                            }
+                          }}>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              onClick={() => handleUnderClick(index, field)}
+                              sx={{ 
+                                minWidth: 80, 
+                                textTransform: "none",
+                                fontSize: "0.75rem",
+                                fontWeight: 500
+                              }}
+                            >
+                              Under
+                            </Button>
+                            <Button
+                              variant="contained"
+                              color="error"
+                              size="small"
+                              onClick={() => handleOverClick(index, field)}
+                              sx={{ 
+                                minWidth: 80, 
+                                textTransform: "none",
+                                fontSize: "0.75rem",
+                                fontWeight: 500
+                              }}
+                            >
+                              Over
+                            </Button>
+                          </Box>
+                        )}
+                      </TableCell>
+                    ))}
+  
                     {/* Due From Cell */}
                     <TableCell sx={{ textAlign: "center" }}>
                       {editableRow === index ? (
                         <TextField
-                          value={
-                            updatedDueFrom[index] ?? row.dueFrom // Use row index as key
-                          }
+                          value={updatedDueFrom[index] ?? row.dueFrom}
                           onChange={(e) => {
                             const value = Number(e.target.value);
                             setUpdatedDueFrom((prev) => ({
                               ...prev,
-                              [index]: isNaN(value) ? prev[index] : value, // Prevent NaN
+                              [index]: isNaN(value) ? prev[index] : value,
                             }));
                           }}
                           size="small"
@@ -629,19 +753,28 @@ const formatDateToYYYYMMDD = (dateString) => {
                               py: 0.5,
                             },
                           }}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">₱</InputAdornment>
+                            ),
+                          }}
                         />
                       ) : (
-                        <span style={{ fontWeight: 500 }}>
-                          {row.dueFrom.toLocaleString()}
+                        <span style={{ fontWeight: 600 }}>
+                          ₱{row.dueFrom.toLocaleString()}
                         </span>
                       )}
                     </TableCell>
-
+  
                     {/* RCD Total Cell */}
-                    <TableCell sx={{ textAlign: "center", fontWeight: 500 }}>
-                      {row.rcdTotal.toLocaleString()}
+                    <TableCell sx={{ 
+                      textAlign: "center", 
+                      fontWeight: 600,
+                      color: theme.palette.success.dark
+                    }}>
+                      ₱{row.rcdTotal.toLocaleString()}
                     </TableCell>
-
+  
                     {/* Remarks Cell */}
                     <TableCell>
                       <TextField
@@ -653,6 +786,9 @@ const formatDateToYYYYMMDD = (dateString) => {
                         size="small"
                         placeholder="Add comment..."
                         sx={{
+                          "& .MuiInputBase-root": {
+                            borderRadius: "6px",
+                          },
                           "& .MuiInputBase-input": {
                             fontSize: "0.875rem",
                             py: 0.5,
@@ -660,7 +796,7 @@ const formatDateToYYYYMMDD = (dateString) => {
                         }}
                       />
                     </TableCell>
-
+  
                     {/* Action Cell */}
                     <TableCell sx={{ textAlign: "center" }}>
                       <IconButton
@@ -670,7 +806,13 @@ const formatDateToYYYYMMDD = (dateString) => {
                             ? handleSaveClick(index, updatedDueFrom)
                             : handleEditClick(index)
                         }
-                        sx={{ "&:hover": { backgroundColor: "action.hover" } }}
+                        sx={{ 
+                          "&:hover": { 
+                            backgroundColor: "rgba(25, 118, 210, 0.08)" 
+                          },
+                          transition: "all 0.2s",
+                          transform: editableRow === index ? "scale(1.1)" : "scale(1)"
+                        }}
                       >
                         {editableRow === index ? (
                           <Save fontSize="small" />
@@ -684,26 +826,50 @@ const formatDateToYYYYMMDD = (dateString) => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={8} sx={{ textAlign: "center", py: 4 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    No records found
-                  </Typography>
+                <TableCell colSpan={8} sx={{ textAlign: "center", py: 6 }}>
+                  <Box sx={{ 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    alignItems: "center",
+                    color: theme.palette.text.secondary
+                  }}>
+                    <InsertDriveFileOutlined  sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      No records found
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      Try adjusting your filters
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             )}
-
+  
             {/* Totals Row */}
-            <TableRow sx={{ backgroundColor: theme.palette.success.light }}>
+            <TableRow sx={{ 
+              backgroundColor: theme.palette.success.light,
+              "& .MuiTableCell-root": {
+                fontWeight: 700,
+                fontSize: "0.9rem",
+                py: 2
+              }
+            }}>
               <TableCell
                 colSpan={4}
-                sx={{ textAlign: "right", fontWeight: 700 }}
+                sx={{ textAlign: "right", color: theme.palette.text.secondary }}
               >
-                Total
+                Grand Total
               </TableCell>
-              <TableCell sx={{ textAlign: "center", fontWeight: 700 }}>
+              <TableCell sx={{ 
+                textAlign: "center", 
+                color: theme.palette.error.dark
+              }}>
                 ₱{totalDueFrom.toLocaleString()}
               </TableCell>
-              <TableCell sx={{ textAlign: "center", fontWeight: 700 }}>
+              <TableCell sx={{ 
+                textAlign: "center", 
+                color: theme.palette.success.dark
+              }}>
                 ₱{totalRcd.toLocaleString()}
               </TableCell>
               <TableCell colSpan={2} />
@@ -711,63 +877,182 @@ const formatDateToYYYYMMDD = (dateString) => {
           </TableBody>
         </Table>
       </TableContainer>
-
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
-        <DialogTitle>
-          {isAdding ? "Enter Value to Add" : "Enter Value to Subtract"}
+  
+      <Paper elevation={0} sx={{ 
+        mt: 4, 
+        p: 3, 
+        borderRadius: 2,
+        backgroundColor: "#f8fafc",
+        border: "1px solid #e0e6ed"
+      }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ 
+              backgroundColor: "#fff", 
+              p: 2, 
+              borderRadius: 2,
+              borderLeft: `4px solid ${theme.palette.primary.main}`
+            }}>
+              <Typography variant="subtitle2" sx={{ 
+                color: theme.palette.text.secondary,
+                mb: 1
+              }}>
+                TOTAL COLLECTIONS
+              </Typography>
+              <Box sx={{ 
+                display: "flex", 
+                alignItems: "center",
+                justifyContent: "space-between"
+              }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  RCD Total
+                </Typography>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 700,
+                  color: theme.palette.success.dark
+                }}>
+                  ₱{totalRcd.toLocaleString()}
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ 
+              backgroundColor: "#fff", 
+              p: 2, 
+              borderRadius: 2,
+              borderLeft: `4px solid ${theme.palette.error.light}`
+            }}>
+              <Typography variant="subtitle2" sx={{ 
+                color: theme.palette.text.secondary,
+                mb: 1
+              }}>
+                DEDUCTIONS
+              </Typography>
+              <Box sx={{ 
+                display: "flex", 
+                alignItems: "center",
+                justifyContent: "space-between"
+              }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Due From
+                </Typography>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 700,
+                  color: theme.palette.error.dark
+                }}>
+                  ₱{totalDueFrom.toLocaleString()}
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid item xs={12}>
+            <Box sx={{ 
+              backgroundColor: theme.palette.primary.light, 
+              p: 2.5, 
+              borderRadius: 2,
+              mt: 1
+            }}>
+              <Box sx={{ 
+                display: "flex", 
+                alignItems: "center",
+                justifyContent: "space-between"
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 700,
+                  color: theme.palette.common.white
+                }}>
+                  Net Collections
+                </Typography>
+                <Typography variant="h5" sx={{ 
+                  fontWeight: 800,
+                  color: theme.palette.common.white
+                }}>
+                  ₱{totalCollections.toLocaleString()}
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+  
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => setDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            width: "100%",
+            maxWidth: "400px"
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 600,
+          backgroundColor: theme.palette.primary.main,
+          color: theme.palette.common.white,
+          py: 2
+        }}>
+          {isAdding ? "Add Adjustment" : "Subtract Adjustment"}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ py: 3 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            {isAdding ? "Enter amount to add to" : "Enter amount to subtract from"} <strong>{dialogField}</strong>
+          </Typography>
           <TextField
             autoFocus
             margin="dense"
-            label={`Enter amount to ${isAdding ? "add to" : "subtract from"} ${dialogField}`}
-            type="number"
             fullWidth
+            type="number"
+            variant="outlined"
             value={dialogInputValue}
             onChange={(e) => setDialogInputValue(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">₱</InputAdornment>
+              ),
+              sx: {
+                borderRadius: 2
+              }
+            }}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDialogConfirm} color="primary">
-            Save
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button 
+            onClick={() => setDialogOpen(false)}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              px: 3
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDialogConfirm} 
+            color="primary"
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              px: 3,
+              boxShadow: "none"
+            }}
+          >
+            Confirm
           </Button>
         </DialogActions>
       </Dialog>
+    </Paper>
 
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginTop: 2,
-          paddingRight: 3,
-          paddingLeft: 3,
-          borderTop: "1px solid #ccc",
-          paddingTop: 2,
-        }}
-      >
-        <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-            RCD Total:{" "}
-            <span style={{ color: "#1565c0" }}>
-              ₱{totalRcd.toLocaleString()}
-            </span>
-          </Typography>
-          <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-            Less: Due From:{" "}
-            <span style={{ color: "#d32f2f" }}>
-              ₱{totalDueFrom.toLocaleString()}
-            </span>
-          </Typography>
-          <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-            Total Collections:{" "}
-            <span style={{ color: "#2e7d32" }}>
-              ₱{totalCollections.toLocaleString()}
-            </span>
-          </Typography>
-        </Box>
-      </Box>
-    </div>
+    <GenerateReport 
+        open={reportDialog.open}
+        onClose={handleCloseDialog}
+        status={reportDialog.status}
+        progress={reportDialog.progress}
+      />
+  </div>
   );
 }
 

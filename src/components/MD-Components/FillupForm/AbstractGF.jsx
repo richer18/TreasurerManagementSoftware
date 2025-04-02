@@ -188,130 +188,134 @@ function AbstractGF({ data, mode }) {
   };
 
   const handleSave = React.useCallback(async (event) => {
-  event.preventDefault();
-
-  // Basic validation
-  if (!selectedDate || !taxpayerName || !receiptNumber || !typeReceipt || !selectedCashier) {
-    setAlertMessage('Please fill out all required fields.');
-    setAlertSeverity('error');
-    return;
-  }
-  for (const [field, value] of Object.entries(fieldValues)) {
-    if (!value) {
-      setAlertMessage(`Please fill out the field: ${field}.`);
+    event.preventDefault();
+  
+    // Basic validation
+    if (!selectedDate || !taxpayerName || !receiptNumber || !typeReceipt || !selectedCashier) {
+      setAlertMessage('Please fill out all required fields.');
       setAlertSeverity('error');
       return;
     }
-  }
-
-  // Format date
-  const dateToSave = new Date(selectedDate);
-  const formattedDate = dateToSave.toISOString().slice(0, 10);
-
-  // Merge with default 0 fields
-  const defaultFieldValues = getDefaultFieldValues(fieldValues);
-
-  // Build data payload
-  const payload = {
-    date: formattedDate,
-    name: taxpayerName,
-    receipt_no: receiptNumber,
-    ...defaultFieldValues,
-    total: total,
-    cashier: selectedCashier,
-    type_receipt: typeReceipt,
-  };
-
-  // If in EDIT MODE, use PUT request and include the row's ID
-  if (mode === 'edit' && data && data.id) {
+  
+    for (const [field, value] of Object.entries(fieldValues)) {
+      if (!value) {
+        setAlertMessage(`Please fill out the field: ${field}.`);
+        setAlertSeverity('error');
+        return;
+      }
+    }
+  
+    // Fix date format to prevent time zone issues
+    const dateToSave = new Date(selectedDate);
+    dateToSave.setHours(0, 0, 0, 0); // Set time to midnight (local)
+    const formattedDate = `${dateToSave.getFullYear()}-${(dateToSave.getMonth() + 1)
+      .toString()
+      .padStart(2, '0')}-${dateToSave.getDate().toString().padStart(2, '0')}`;
+  
+    console.log("Formatted Date:", formattedDate); // Debugging log
+  
+    // Merge with default 0 fields
+    const defaultFieldValues = getDefaultFieldValues(fieldValues);
+  
+    // Build data payload
+    const payload = {
+      date: formattedDate, // Use the fixed date format
+      name: taxpayerName,
+      receipt_no: receiptNumber,
+      ...defaultFieldValues,
+      total: total,
+      cashier: selectedCashier,
+      type_receipt: typeReceipt,
+    };
+  
+    // If in EDIT MODE, use PUT request
+    if (mode === 'edit' && data && data.id) {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `http://192.168.101.108:3001/api/updateGeneralFundData/${data.id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
+  
+        if (!response.ok) {
+          if (response.status === 400) {
+            const errorData = await response.json();
+            setAlertMessage(errorData.message || 'Duplicate receipt number');
+            setAlertSeverity('error');
+            setLoading(false);
+            return;
+          }
+          throw new Error('Network response was not ok');
+        }
+  
+        setTimeout(() => {
+          handleClearFields();
+          window.location.reload();
+          setAlertMessage('Data updated successfully.');
+          setAlertSeverity('success');
+          setLoading(false);
+        }, 3000);
+  
+      } catch (error) {
+        console.error('Failed to update data:', error);
+        setAlertMessage('Failed to update data.');
+        setAlertSeverity('error');
+        setLoading(false);
+      }
+      return;
+    }
+  
+    // Otherwise, assume ADD mode:
     try {
       setLoading(true);
-      const response = await fetch(
-        `http://192.168.101.108:3001/api/updateGeneralFundData/${data.id}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
-
+      const response = await fetch('http://192.168.101.108:3001/api/saveGeneralFundData', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+  
       if (!response.ok) {
-        // If the server returns 400, it may be a duplicate
         if (response.status === 400) {
           const errorData = await response.json();
-          setAlertMessage(errorData.message || 'Duplicate receipt number');
+          setAlertMessage(errorData.message);
           setAlertSeverity('error');
           setLoading(false);
           return;
         }
         throw new Error('Network response was not ok');
       }
-
+  
       setTimeout(() => {
         handleClearFields();
         window.location.reload();
-        setAlertMessage('Data updated successfully.');
+        setAlertMessage('Data saved successfully.');
         setAlertSeverity('success');
         setLoading(false);
       }, 3000);
-
+  
     } catch (error) {
-      console.error('Failed to update data:', error);
-      setAlertMessage('Failed to update data.');
+      console.error('Failed to save data:', error);
+      setAlertMessage('Failed to save data.');
       setAlertSeverity('error');
       setLoading(false);
     }
-    return;
-  }
-
-  // Otherwise, if not editing, we assume ADD mode:
-  try {
-    setLoading(true);
-    const response = await fetch('http://192.168.101.108:3001/api/saveGeneralFundData', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      // Check if it's a 400 error (duplicate receipt number)
-      if (response.status === 400) {
-        const errorData = await response.json(); // e.g. { message: "Receipt number already exists" }
-        setAlertMessage(errorData.message);
-        setAlertSeverity('error');
-        setLoading(false);
-        return; // stop here
-      }
-
-      throw new Error('Network response was not ok');
-    }
-
-    setTimeout(() => {
-      handleClearFields();
-      window.location.reload();
-      setAlertMessage('Data saved successfully.');
-      setAlertSeverity('success');
-      setLoading(false);
-    }, 3000);
-
-  } catch (error) {
-    console.error('Failed to save data:', error);
-    setAlertMessage('Failed to save data.');
-    setAlertSeverity('error');
-    setLoading(false);
-  }
-}, [
-  mode,
-  data,
-  selectedDate,
-  taxpayerName,
-  receiptNumber,
-  typeReceipt,
-  selectedCashier,
-  fieldValues,
-  total,
-  handleClearFields
-]);
+  }, [
+    mode,
+    data,
+    selectedDate,
+    taxpayerName,
+    receiptNumber,
+    typeReceipt,
+    selectedCashier,
+    fieldValues,
+    total,
+    handleClearFields
+  ]);
+  
 
   // -----------------------------
   //  PROGRESS ANIMATION
