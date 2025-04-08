@@ -35,7 +35,7 @@ const months = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
+const BASE_URL = "http://localhost:3001"; // Define base URL
 
 function FullReport() {
   const [month, setMonth] = useState("1");

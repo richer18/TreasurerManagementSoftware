@@ -4,11 +4,9 @@ const mysql2 = require('mysql2/promise');  // Use the callback-based API
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { parse } = require('json2csv');
-const path = require("path");
 const app = express();
 const port = 3001;
 const axios = require('axios');
-const fs = require("fs");
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -18,21 +16,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-const dbConfig = {
-  host: '192.168.101.108',
-  user: 'treasurer_root2',
-  password: '$p4ssworD!',
-  database: 'treasurer_management_app',
-  port: 3307
-};
-
 // const dbConfig = {
-//   host: 'localhost',
-//   user: 'root',
-//   password: '',
+//   host: '192.168.101.108',
+//   user: 'treasurer_root2',
+//   password: '$p4ssworD!',
 //   database: 'treasurer_management_app',
 //   port: 3307
 // };
+
+const dbConfig = {
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'treasurer_management_app',
+  port: 3307
+};
 
 const dbConfigs = {
   host: 'localhost',
@@ -1841,30 +1839,6 @@ app.get('/api/overallTotalBasicAndSEFSharing', (req, res) => {
   });
 });
 
-
-// Fetch data based on date filtering
-app.get('/api/filteredData', (req, res) => {
-  const { month, day, year } = req.query;
-  
-  let query = `
-    SELECT * FROM your_table_name
-    WHERE YEAR(date) = ? AND MONTH(date) = ?
-  `;
-
-  const params = [year, month];
-  
-  if (day) {
-    query += ` AND DAY(date) = ?`;
-    params.push(day);
-  }
-
-  db.query(query, params, (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json(results);
-  });
-});
 
 // Download filtered data as CSV
 app.get('/api/downloadData', (req, res) => {
@@ -4276,8 +4250,90 @@ app.post("/api/save-adjustment", (req, res) => {
   });
 });
 
-// 🏆 Ensure this is before `app.listen()`
-console.log("✅ API Route Registered: /api/save-adjustment");
+app.get('/api/cashiers', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        USERID AS cashier,
+        'cedula' AS table_name
+      FROM cedula
+      WHERE USERID IN ('flora', 'angelique', 'agnes', 'ricardo')
+      GROUP BY USERID
+      
+      UNION ALL
+      
+      SELECT 
+        cashier,
+        'general_fund_data' AS table_name
+      FROM general_fund_data
+      WHERE cashier IN ('RICARDO', 'IRIS', 'FLORA MY', 'AGNES', 'AMABELLA')
+      GROUP BY cashier
+      
+      UNION ALL
+      
+      SELECT 
+        CASHIER AS cashier,
+        'trust_fund_data' AS table_name
+      FROM trust_fund_data
+      WHERE CASHIER IN ('RICARDO', 'IRIS', 'FLORA MY', 'AGNES')
+      GROUP BY CASHIER
+      
+      UNION ALL
+      
+      SELECT 
+        cashier,
+        'real_property_tax_data' AS table_name
+      FROM real_property_tax_data
+      WHERE cashier IN ('RICARDO ENOPIA', 'IRIS RAFALES', 'FLORA MY FERRER')
+      GROUP BY cashier
+      
+      ORDER BY table_name, cashier
+    `;
+
+    const { rows } = await pool.query(query);
+    
+    // Transform to match frontend format
+    const result = rows.map(row => ({
+      id: row.cashier,
+      name: formatCashierName(row.cashier, row.table_name),
+      table: mapTableName(row.table_name)
+    }));
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching cashiers:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper functions
+const formatCashierName = (cashier, table) => {
+  const nameMap = {
+    'flora': 'Flora',
+    'angelique': 'Angelique',
+    'agnes': 'Agnes',
+    'ricardo': 'Ricardo',
+    'RICARDO': 'Ricardo Enopia',
+    'IRIS': 'Iris Rafales',
+    'FLORA MY': 'Flora My Ferrer',
+    'AGNES': 'Agnes Ello',
+    'AMABELLA': 'Amabella'
+  };
+  
+  return table === 'cedula' 
+    ? nameMap[cashier.toLowerCase()] 
+    : nameMap[cashier] || cashier;
+};
+
+const mapTableName = (dbTable) => {
+  const tableMap = {
+    'cedula': 'cedula',
+    'general_fund_data': 'general_fund',
+    'trust_fund_data': 'trust_fund',
+    'real_property_tax_data': 'rpt'
+  };
+  return tableMap[dbTable] || dbTable;
+};
 
 
 

@@ -458,7 +458,7 @@ const handlePrint = () => {
           {[
             "Date", "Name", "Receipt No", "LAND-COMML", "LAND-AGRI", "LAND-RES",
             "BLDG-RES", "BLDG-COMML", "BLDG-AGRI", "MACHINERIES", "BLDG-INDUS",
-            "SPECIAL", "TOTAL", "CASHIER", "REMARKS", "ACTION"
+            "SPECIAL", "TOTAL","GF & SEF", "CASHIER", "REMARKS", "ACTION"
           ].map((header) => (
             <StyledTableCell key={header} sx={{ textAlign: 'center' }}>
               {header}
@@ -474,7 +474,7 @@ const handlePrint = () => {
             <CenteredTableCell>{row.name}</CenteredTableCell>
             <CenteredTableCell>{row.receipt}</CenteredTableCell>
             {[row.landComm, row.landAgri, row.landRes, row.bldgRes, row.bldgComm, row.bldgAgri,
-              row.machinery, row.bldgIndus, row.special, row.total
+              row.machinery, row.bldgIndus, row.special, row.total,row.total *2
             ].map((value, i) => (
               <RightAlignedTableCell key={i}>{value.toFixed(2)}</RightAlignedTableCell>
             ))}
@@ -510,6 +510,14 @@ const handlePrint = () => {
           </RightAlignedTableCell>
           <RightAlignedTableCell colSpan={4}>
             <Typography fontWeight="bold">₱{totalAmount.toFixed(2)}</Typography>
+          </RightAlignedTableCell>
+        </StyledTableRow>
+        <StyledTableRow>
+          <RightAlignedTableCell colSpan={14}>
+            <Typography fontWeight="bold"> OVERALL TOTAL</Typography>
+          </RightAlignedTableCell>
+          <RightAlignedTableCell colSpan={4}>
+            <Typography fontWeight="bold">₱{totalAmount.toFixed(2)*2}</Typography>
           </RightAlignedTableCell>
         </StyledTableRow>
       </TableBody>
