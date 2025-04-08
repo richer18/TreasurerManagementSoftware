@@ -65,14 +65,14 @@ const formatDate = (dateInput) => {
 
 const BASE_URL = "http://192.168.101.108:3001";
 
-function ViewDialog({ open, onClose, data, setData,selectedDate, onDataUpdate }) {
+function ViewDialog({ open, onClose, data,selectedDate, onDataUpdate }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRow, setCurrentRow] = useState(null);
   const [openEditForm, setOpenEditForm] = useState(false);
   const [editData, setEditData] = useState(null);
   const [openCommentDialogs, setOpenCommentDialogs] = useState(false);
   const [currentComment, setCurrentComment] = useState('');
-  const [searchFrom, setSearchFrom] = useState(""); 
+  const [searchFrom, setSearchFrom] = useState("");
   const [searchTo, setSearchTo] = useState("");
 
   
@@ -113,89 +113,90 @@ function ViewDialog({ open, onClose, data, setData,selectedDate, onDataUpdate })
 
  
 
-  const filteredData = useMemo(() => {
-    if (!selectedDate) return [];
+ const filteredData = useMemo(() => {
+   if (!selectedDate) return [];
 
-    return data
-      .filter((row) => {
-        if (!row.date) return false;
-        return format(row.date, "MM-dd-yyyy") === format(selectedDate, "MM-dd-yyyy");
-      })
-      .map((row) => {
-        const entry = {
-          ...row,
-          id: row.id,
-          date: row.date,
-          name: row.name || "",
-          receipt_no: row.receipt || "",
-          comments: row.comments || "",
-          landComm: 0,
-          landAgri: 0,
-          landRes: 0,
-          bldgRes: 0,
-          bldgComm: 0,
-          bldgAgri: 0,
-          machinery: 0,
-          bldgIndus: 0,
-          special: 0,
-          total: parseFloat(row.total) || 0,
-          cashier: row.cashier || "",
-          formattedDate: formatDate(row.date),
-        };
+   return data
+     .filter((row) => {
+       if (!row.date) return false;
+       const rowDate = row.date instanceof Date ? row.date : new Date(row.date);
+       if (isNaN(rowDate.getTime())) return false;
+       return (
+         format(rowDate, "MM-dd-yyyy") === format(selectedDate, "MM-dd-yyyy")
+       );
+     })
+     .map((row) => {
+       const rowDate = row.date instanceof Date ? row.date : new Date(row.date);
+       const entry = {
+         ...row,
+         id: row.id,
+         date: row.date,
+         name: row.name || "",
+         receipt_no: row.receipt || "",
+         comments: row.comments || "",
+         landComm: 0,
+         landAgri: 0,
+         landRes: 0,
+         bldgRes: 0,
+         bldgComm: 0,
+         bldgAgri: 0,
+         machinery: 0,
+         bldgIndus: 0,
+         special: 0,
+         total: parseFloat(row.total) || 0,
+         cashier: row.cashier || "",
+         formattedDate: formatDate(rowDate),
+       };
 
-        // Assign amounts based on status
-        const amount = parseFloat(row.total) || 0;
-        switch (row.status) {
-          case "LAND-COMML":
-            entry.landComm = amount;
-            break;
-          case "LAND-AGRI":
-            entry.landAgri = amount;
-            break;
-          case "LAND-RES":
-            entry.landRes = amount;
-            break;
-          case "BLDG-RES":
-            entry.bldgRes = amount;
-            break;
-          case "BLDG-COMML":
-            entry.bldgComm = amount;
-            break;
-          case "BLDG-AGRI":
-            entry.bldgAgri = amount;
-            break;
-          case "MACHINERIES":
-            entry.machinery = amount;
-            break;
-          case "BLDG-INDUS":
-            entry.bldgIndus = amount;
-            break;
-          case "SPECIAL":
-            entry.special = amount;
-            break;
-          default:
-            break;
-        }
+       const amount = parseFloat(row.total) || 0;
+       switch (row.status) {
+         case "LAND-COMML":
+           entry.landComm = amount;
+           break;
+         case "LAND-AGRI":
+           entry.landAgri = amount;
+           break;
+         case "LAND-RES":
+           entry.landRes = amount;
+           break;
+         case "BLDG-RES":
+           entry.bldgRes = amount;
+           break;
+         case "BLDG-COMML":
+           entry.bldgComm = amount;
+           break;
+         case "BLDG-AGRI":
+           entry.bldgAgri = amount;
+           break;
+         case "MACHINERIES":
+           entry.machinery = amount;
+           break;
+         case "BLDG-INDUS":
+           entry.bldgIndus = amount;
+           break;
+         case "SPECIAL":
+           entry.special = amount;
+           break;
+         default:
+           break;
+       }
+       return entry;
+     })
+     .filter((entry) => {
+       const receiptNo = parseInt(entry.receipt_no, 10);
+       const from = searchFrom ? parseInt(searchFrom, 10) : null;
+       const to = searchTo ? parseInt(searchTo, 10) : null;
 
-        return entry;
-      })
-      // 🔹 Apply search filter for exact match
-      .filter((entry) => {
-        const receiptNo = parseInt(entry.receipt_no, 10);
-        const from = searchFrom ? parseInt(searchFrom, 10) : null;
-        const to = searchTo ? parseInt(searchTo, 10) : null;
-
-        if (from !== null && to !== null) {
-          return receiptNo >= from && receiptNo <= to;
-        } else if (from !== null) {
-          return receiptNo === from; // **EXACT MATCH**
-        } else if (to !== null) {
-          return receiptNo === to; // **EXACT MATCH**
-        }
-
-        return true; // If both fields are empty, return all
-      });
-  }, [data, selectedDate, searchFrom, searchTo]);
+       if (from !== null && to !== null) {
+         return receiptNo >= from && receiptNo <= to;
+       } else if (from !== null) {
+         return receiptNo === from;
+       } else if (to !== null) {
+         return receiptNo === to;
+       }
+       return true;
+     });
+ }, [data, selectedDate, searchFrom, searchTo]);
 
   const totalAmount = useMemo(() => {
     return filteredData.reduce((total, row) => total + row.total, 0);

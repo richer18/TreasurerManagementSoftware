@@ -1,3 +1,5 @@
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
   Autocomplete, Badge,
   Box,
@@ -21,14 +23,11 @@ import {
   Typography,
 } from '@mui/material';
 import axios from 'axios';
-import { format, parseISO } from 'date-fns';
+import { format, isValid, parse, parseISO } from "date-fns";
 import PropTypes from 'prop-types';
 import React, { useEffect, useMemo, useState } from 'react';
-import ViewDialog from './ViewDialog'; // Import the ViewDialog component
-
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import CommentsDialog from './CommentsDialog';
+import ViewDialog from './ViewDialog'; // Import the ViewDialog component
 
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -172,7 +171,17 @@ function DailyTable({ onDataFiltered, onBack }) {
   };
 
   const handleViewClick = () => {
-    const date = currentRow.date instanceof Date ? currentRow.date : parseISO(currentRow.date);
+    let date;
+    if (currentRow.date instanceof Date) {
+      date = currentRow.date;
+    } else {
+      // Use the format your database provides, which is 'yyyy-MM-dd'
+      date = parse(currentRow.date, "yyyy-MM-dd", new Date());
+    }
+    if (!isValid(date)) {
+      console.error("Parsed date is invalid:", currentRow.date);
+      return;
+    }
     setSelectedDate(date);
     setOpenViewDialogs(true);
     handleMenuClose();
@@ -219,15 +228,29 @@ function DailyTable({ onDataFiltered, onBack }) {
 
   const filteredData = useMemo(() => {
     const filtered = data.filter((row) => {
-      const rowMonth = row.date ? format(row.date, 'M') : null;
-      const rowYear = row.date ? format(row.date, 'yyyy') : null;
-      return (month ? rowMonth === month : true) && (year ? rowYear === year : true);
+      // Validate date first
+      const dateObj = row.date ? new Date(row.date) : null;
+      const isValidDate = dateObj && !isNaN(dateObj.getTime());
+
+      if (!isValidDate) return false; // Skip invalid dates
+
+      const rowMonth = format(dateObj, "M");
+      const rowYear = format(dateObj, "yyyy");
+      return (
+        (month ? rowMonth === month : true) && (year ? rowYear === year : true)
+      );
     });
 
     const dataByDate = {};
 
     filtered.forEach((row) => {
-      const dateKey = row.date ? format(row.date, 'yyyy-MM-dd') : 'Invalid Date'; // Remove time part if exists
+      // Handle invalid dates consistently
+      const dateObj = row.date ? new Date(row.date) : null;
+      const isValidDate = dateObj && !isNaN(dateObj.getTime());
+      const dateKey = isValidDate
+        ? format(dateObj, "yyyy-MM-dd")
+        : "Invalid Date";
+
       if (!dataByDate[dateKey]) {
         dataByDate[dateKey] = {
           date: dateKey,
@@ -241,7 +264,7 @@ function DailyTable({ onDataFiltered, onBack }) {
           bldgIndus: 0,
           special: 0,
           total: 0,
-          comments: '',
+          comments: "",
         };
       }
 
@@ -249,28 +272,28 @@ function DailyTable({ onDataFiltered, onBack }) {
       dataByDate[dateKey].total += amount;
 
       switch (row.status) {
-        case 'LAND-COMML':
+        case "LAND-COMML":
           dataByDate[dateKey].landComm += amount;
           break;
-        case 'LAND-AGRI':
+        case "LAND-AGRI":
           dataByDate[dateKey].landAgri += amount;
           break;
-        case 'LAND-RES':
+        case "LAND-RES":
           dataByDate[dateKey].landRes += amount;
           break;
-        case 'BLDG-RES':
+        case "BLDG-RES":
           dataByDate[dateKey].bldgRes += amount;
           break;
-        case 'BLDG-COMML':
+        case "BLDG-COMML":
           dataByDate[dateKey].bldgComm += amount;
           break;
-        case 'BLDG-AGRI':
+        case "BLDG-AGRI":
           dataByDate[dateKey].bldgAgri += amount;
           break;
-        case 'MACHINERY':
+        case "MACHINERY":
           dataByDate[dateKey].machinery += amount;
           break;
-        case 'SPECIAL':
+        case "SPECIAL":
           dataByDate[dateKey].special += amount;
           break;
         default:

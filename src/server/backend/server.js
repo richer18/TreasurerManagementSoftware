@@ -18,21 +18,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-// const dbConfig = {
-//   host: '192.168.101.108',
-//   user: 'treasurer_root2',
-//   password: '$p4ssworD!',
-//   database: 'treasurer_management_app',
-//   port: 3307
-// };
-
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '',
+  host: '192.168.101.108',
+  user: 'treasurer_root2',
+  password: '$p4ssworD!',
   database: 'treasurer_management_app',
   port: 3307
 };
+
+// const dbConfig = {
+//   host: 'localhost',
+//   user: 'root',
+//   password: '',
+//   database: 'treasurer_management_app',
+//   port: 3307
+// };
 
 const dbConfigs = {
   host: 'localhost',
@@ -47,32 +47,32 @@ const db2 = mysql.createPool(dbConfigs);
 const pool = mysql2.createPool(dbConfig);
 
 // Define an endpoint to handle form submissions
-app.post('/api/save', (req, res) => {
-  const { receipt_no, status } = req.body;
+// app.post('/api/save', (req, res) => {
+//   const { receipt_no, status } = req.body;
 
-  // Check for duplicate
-  const checkSql = 'SELECT * FROM real_property_tax_data WHERE receipt_no = ? AND status = ?';
-  db.query(checkSql, [receipt_no, status], (err, results) => {
-    if (err) {
-      console.error('Error checking for duplicates:', err);
-      return res.status(500).send('Error checking for duplicates');
-    }
+//   // Check for duplicate
+//   const checkSql = 'SELECT * FROM real_property_tax_data WHERE receipt_no = ? AND status = ?';
+//   db.query(checkSql, [receipt_no, status], (err, results) => {
+//     if (err) {
+//       console.error('Error checking for duplicates:', err);
+//       return res.status(500).send('Error checking for duplicates');
+//     }
 
-    if (results.length > 0) {
-      return res.status(400).send('Duplicate entry: receipt_no and status already exist');
-    }
+//     if (results.length > 0) {
+//       return res.status(400).send('Duplicate entry: receipt_no and status already exist');
+//     }
 
-    // Insert new record if no duplicate found
-    const sql = 'INSERT INTO real_property_tax_data SET ?';
-    db.query(sql, req.body, (err, result) => {
-      if (err) {
-        console.error('Error saving data:', err);
-        return res.status(500).send('Error saving data');
-      }
-      res.send('Data saved successfully');
-    });
-  });
-});
+//     // Insert new record if no duplicate found
+//     const sql = 'INSERT INTO real_property_tax_data SET ?';
+//     db.query(sql, req.body, (err, result) => {
+//       if (err) {
+//         console.error('Error saving data:', err);
+//         return res.status(500).send('Error saving data');
+//       }
+//       res.send('Data saved successfully');
+//     });
+//   });
+// });
 
 // Helper function to add date filters
 const addDateFilters = (sql, month, day, year) => {
