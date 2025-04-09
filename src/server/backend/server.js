@@ -16,21 +16,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-// const dbConfig = {
-//   host: '192.168.101.108',
-//   user: 'treasurer_root2',
-//   password: '$p4ssworD!',
-//   database: 'treasurer_management_app',
-//   port: 3307
-// };
-
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '',
+  host: '192.168.101.108',
+  user: 'treasurer_root2',
+  password: '$p4ssworD!',
   database: 'treasurer_management_app',
   port: 3307
 };
+
+// const dbConfig = {
+//   host: 'localhost',
+//   user: 'root',
+//   password: '',
+//   database: 'treasurer_management_app',
+//   port: 3307
+// };
 
 const dbConfigs = {
   host: 'localhost',
@@ -4250,90 +4250,157 @@ app.post("/api/save-adjustment", (req, res) => {
   });
 });
 
-app.get('/api/cashiers', async (req, res) => {
-  try {
-    const query = `
-      SELECT 
-        USERID AS cashier,
-        'cedula' AS table_name
-      FROM cedula
-      WHERE USERID IN ('flora', 'angelique', 'agnes', 'ricardo')
-      GROUP BY USERID
-      
-      UNION ALL
-      
-      SELECT 
-        cashier,
-        'general_fund_data' AS table_name
-      FROM general_fund_data
-      WHERE cashier IN ('RICARDO', 'IRIS', 'FLORA MY', 'AGNES', 'AMABELLA')
-      GROUP BY cashier
-      
-      UNION ALL
-      
-      SELECT 
-        CASHIER AS cashier,
-        'trust_fund_data' AS table_name
-      FROM trust_fund_data
-      WHERE CASHIER IN ('RICARDO', 'IRIS', 'FLORA MY', 'AGNES')
-      GROUP BY CASHIER
-      
-      UNION ALL
-      
-      SELECT 
-        cashier,
-        'real_property_tax_data' AS table_name
-      FROM real_property_tax_data
-      WHERE cashier IN ('RICARDO ENOPIA', 'IRIS RAFALES', 'FLORA MY FERRER')
-      GROUP BY cashier
-      
-      ORDER BY table_name, cashier
-    `;
+app.post("/api/generate-report", (req, res) => {
+  const {
+    dateType,
+    dateFrom,
+    dateTo,
+    reportType,
+    cashier,
+    ctcnFrom,
+    ctcnTo,
+    orFrom,
+    orTo
+  } = req.body;
 
-    const { rows } = await pool.query(query);
-    
-    // Transform to match frontend format
-    const result = rows.map(row => ({
-      id: row.cashier,
-      name: formatCashierName(row.cashier, row.table_name),
-      table: mapTableName(row.table_name)
-    }));
-    
-    res.json(result);
-  } catch (error) {
-    console.error('Error fetching cashiers:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  if (!dateFrom || !dateTo || !cashier || !reportType) {
+    return res.status(400).json({ error: 'Missing required fields' });
   }
+
+  // Format date range
+  let startDate, endDate;
+  if (dateType === 'monthYear') {
+    const [year, month] = dateFrom.split('-');
+    startDate = `${year}-${month}-01`;
+    endDate = `${year}-${month}-${new Date(year, month, 0).getDate()}`;
+  } else {
+    startDate = dateFrom;
+    endDate = dateTo;
+  }
+
+  let query = '';
+  const queryParams = [];
+
+  // --- RPT ---
+  if (reportType === 'real_property_tax_data') {
+    query = `
+      SELECT 
+        DATE_FORMAT(date, '%Y-%m-%d') AS date,
+        cashier,
+        'RPT' AS report_type,
+        receipt_no AS or_number,
+        CAST(gf_total AS DECIMAL(10,2)) AS total
+      FROM real_property_tax_data
+      WHERE date BETWEEN ? AND ? AND cashier = ?
+    `;
+    queryParams.push(startDate, endDate, cashier);
+
+    if (orFrom && orTo) {
+      query += ' AND receipt_no BETWEEN ? AND ?';
+      queryParams.push(orFrom, orTo);
+    }
+
+  // --- Cedula ---
+  } else if (reportType === 'CTCI') {
+    query = `
+      SELECT 
+        DATE_FORMAT(DATEISSUED, '%Y-%m-%d') AS date,
+        USERID AS cashier,
+        CTCTYPE AS report_type,
+        CTCNO AS or_number,
+        CAST(TOTALAMOUNTPAID AS DECIMAL(10,2)) AS total
+      FROM cedula
+      WHERE DATEISSUED BETWEEN ? AND ? AND USERID = ? AND CTCTYPE = ?
+    `;
+    queryParams.push(startDate, endDate, cashier, reportType);
+
+    if (ctcnFrom && ctcnTo) {
+      query += ' AND CTCNO BETWEEN ? AND ?';
+      queryParams.push(ctcnFrom, ctcnTo);
+    }
+
+  // --- GF AND TF ---
+  } else if (reportType === '51') {
+    if (cashier === 'AMABELLA') {
+      // Special case: AMABELLA – Cash_Tickets only
+      query = `
+        SELECT 
+          DATE_FORMAT(date, '%Y-%m-%d') AS date,
+          cashier,
+          'GF' AS report_type,
+          receipt_no AS or_number,
+          CAST(Cash_Tickets AS DECIMAL(10,2)) AS total
+        FROM general_fund_data
+        WHERE date BETWEEN ? AND ? AND cashier = ? AND type_receipt = '51' AND Cash_Tickets > 0
+      `;
+      queryParams.push(startDate, endDate, cashier);
+
+      if (orFrom && orTo) {
+        query += ' AND receipt_no BETWEEN ? AND ?';
+        queryParams.push(orFrom, orTo);
+      }
+    } else {
+      // Normal GF + TF
+      query = `
+        (
+          SELECT 
+            DATE_FORMAT(date, '%Y-%m-%d') AS date,
+            cashier,
+            'GF' AS report_type,
+            receipt_no AS or_number,
+            CAST(total AS DECIMAL(10,2)) AS total
+          FROM general_fund_data
+          WHERE date BETWEEN ? AND ? AND cashier = ? AND type_receipt = '51'
+      `;
+      queryParams.push(startDate, endDate, cashier);
+
+      if (orFrom && orTo) {
+        query += ' AND receipt_no BETWEEN ? AND ?';
+        queryParams.push(orFrom, orTo);
+      }
+
+      query += `)
+        UNION ALL
+        (
+          SELECT 
+            DATE_FORMAT(date, '%Y-%m-%d') AS date,
+            cashier,
+            'TF' AS report_type,
+            receipt_no AS or_number,
+            CAST(total AS DECIMAL(10,2)) AS total
+          FROM trust_fund_data
+          WHERE date BETWEEN ? AND ? AND cashier = ? AND TYPE_OF_RECEIPT = '51'
+      `;
+      queryParams.push(startDate, endDate, cashier);
+
+      if (orFrom && orTo) {
+        query += ' AND receipt_no BETWEEN ? AND ?';
+        queryParams.push(orFrom, orTo);
+      }
+
+      query += ') ORDER BY date';
+    }
+
+  } else {
+    return res.status(400).json({ error: 'Unsupported report type' });
+  }
+
+  // Execute the final query
+  db.query(query, queryParams, (error, results) => {
+    if (error) {
+      console.error('SQL Error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    const processedData = results.map(row => ({
+      ...row,
+      total: Number(row.total),
+      date: row.date || null
+    }));
+
+    res.json({ data: processedData });
+  });
 });
-
-// Helper functions
-const formatCashierName = (cashier, table) => {
-  const nameMap = {
-    'flora': 'Flora',
-    'angelique': 'Angelique',
-    'agnes': 'Agnes',
-    'ricardo': 'Ricardo',
-    'RICARDO': 'Ricardo Enopia',
-    'IRIS': 'Iris Rafales',
-    'FLORA MY': 'Flora My Ferrer',
-    'AGNES': 'Agnes Ello',
-    'AMABELLA': 'Amabella'
-  };
-  
-  return table === 'cedula' 
-    ? nameMap[cashier.toLowerCase()] 
-    : nameMap[cashier] || cashier;
-};
-
-const mapTableName = (dbTable) => {
-  const tableMap = {
-    'cedula': 'cedula',
-    'general_fund_data': 'general_fund',
-    'trust_fund_data': 'trust_fund',
-    'real_property_tax_data': 'rpt'
-  };
-  return tableMap[dbTable] || dbTable;
-};
 
 
 

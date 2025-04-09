@@ -56,6 +56,8 @@ const fieldOptions = [
 
 const cashier = ['Please a select','FLORA MY','IRIS','RICARDO','AGNES','AMABELLA'];
 
+
+
 const filterOptions = (options, inputValue) => {
   if (!inputValue) {
     return options;
@@ -85,6 +87,20 @@ function AbstractGF({ data, mode }) {
   const [alertSeverity, setAlertSeverity] = useState('info');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+
+
+  const autoGenerateReceipt = async () => {
+    try {
+      // Simulate getting the last receipt from database
+      // In a real app, you'd fetch this from your backend
+      const lastReceipt = '000000'; // Let's say this was fetched
+  
+      const newReceiptNum = String(parseInt(lastReceipt, 10) + 1).padStart(6, '0');
+      setReceiptNumber(newReceiptNum);
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+    }
+  };
 
   // -----------------------------
   //  PREFILL IF EDIT MODE
@@ -150,14 +166,21 @@ function AbstractGF({ data, mode }) {
   };
   const handleFieldSelect = (event) => {
     const newSelectedField = event.target.value;
+  
     if (newSelectedField) {
       setFields([...fields, newSelectedField]);
       setFieldValues({ ...fieldValues, [newSelectedField]: '' });
       setSelectedField('');
-      setSelectedField(event.target.value);
+      setSelectedField(newSelectedField);
       setShowSelect(false);
+  
+      // Check for "Cash_Tickets" and auto-generate receipt number
+      if (newSelectedField === 'Cash_Tickets') {
+        autoGenerateReceipt();
+      }
     }
   };
+
   const handleNewField = () => {
     setShowSelect(true);
   };
