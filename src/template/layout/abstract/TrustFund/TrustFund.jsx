@@ -50,6 +50,8 @@ import TrustFundDialogPopupZF from "../../../../components/MD-Components/Popup/c
 
 import DailyTable from "./TableData/DailyTable";
 
+import GenerateReport from './TableData/GenerateReport';
+
 // Custom styled table cell
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -212,6 +214,38 @@ function TrustFund() {
 
     fetchTotals();
   }, []);
+
+
+   const [reportDialog, setReportDialog] = useState({
+        open: false,
+        status: 'idle', // 'idle' | 'loading' | 'success' | 'error'
+        progress: 0
+      });
+    
+      const ChhandleCloseDialog = () => {
+        setReportDialog({ ...reportDialog, open: false });
+      };
+  
+      const handleGenerateReport = () => {
+        // Open dialog in loading state
+        setReportDialog({
+          open: true,
+          status: 'loading',
+          progress: 0
+        });
+    
+        // Simulate report generation
+        const interval = setInterval(() => {
+          setReportDialog(prev => {
+            const newProgress = prev.progress + 10;
+            if (newProgress >= 100) {
+              clearInterval(interval);
+              return { ...prev, status: 'success', progress: 100 };
+            }
+            return { ...prev, progress: newProgress };
+          });
+        }, 300);
+      };
 
   const handleEditClick = () => {
     if (!selectedRow) return;
@@ -645,6 +679,22 @@ function TrustFund() {
                 Daily Summary
               </Button>
             </Tooltip>
+
+            <Tooltip title="Generate Receipt Report">
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleGenerateReport}
+                startIcon={<IoToday size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+              >
+                Check Receipt
+              </Button>
+            </Tooltip>
           </Box>
 
           <Box display="flex" gap={2}>
@@ -914,6 +964,13 @@ function TrustFund() {
       <TrustFundDialogPopupZF open={openZF} onClose={handleCloseZF} />
       <TrustFundDialogPopupLDF open={openLDF} onClose={handleCloseLDF} />
       <TrustFundDialogPopupTOTAL open={openTOTAL} onClose={handleCloseTOTAL} />
+
+       <GenerateReport 
+              open={reportDialog.open}
+              onClose={ChhandleCloseDialog}
+              status={reportDialog.status}
+              progress={reportDialog.progress}
+            />
     </Box>
   );
 }

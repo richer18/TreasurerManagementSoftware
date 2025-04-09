@@ -51,6 +51,8 @@ import GeneralFundDialog from '../../../../components/MD-Components/Popup/Genera
 import PopupDialog from '../../../../components/MD-Components/Popup/PopupDialogGF_FORM';
 import DailyTable from './TableData/DailyTable';
 import ReportTable from './TableData/ReportTable';
+
+import GenerateReport from './TableData/GenerateReport';
 // --------------------------------------------------------
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -174,7 +176,36 @@ const [openDailyTable, setOpenDailyTable] = useState(false);
       severity: "info",
     });
 
+  const [reportDialog, setReportDialog] = useState({
+      open: false,
+      status: 'idle', // 'idle' | 'loading' | 'success' | 'error'
+      progress: 0
+    });
   
+    const ChhandleCloseDialog = () => {
+      setReportDialog({ ...reportDialog, open: false });
+    };
+
+    const handleGenerateReport = () => {
+      // Open dialog in loading state
+      setReportDialog({
+        open: true,
+        status: 'loading',
+        progress: 0
+      });
+  
+      // Simulate report generation
+      const interval = setInterval(() => {
+        setReportDialog(prev => {
+          const newProgress = prev.progress + 10;
+          if (newProgress >= 100) {
+            clearInterval(interval);
+            return { ...prev, status: 'success', progress: 100 };
+          }
+          return { ...prev, progress: newProgress };
+        });
+      }, 300);
+    };
 
   // Fetch main table data on mount
   useEffect(() => {
@@ -609,6 +640,22 @@ const handleCloseRFEE = () => {
                 Daily Report
               </Button>
             </Tooltip>
+
+            <Tooltip title="Generate Check Report">
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleGenerateReport}
+                startIcon={<IoToday size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+              >
+                Check Receipt
+              </Button>
+            </Tooltip>
           </Box>
 
           <Box display="flex" gap={2}>
@@ -896,6 +943,12 @@ const handleCloseRFEE = () => {
               </DialogActions>
             </Dialog>
 
+            <GenerateReport 
+        open={reportDialog.open}
+        onClose={ChhandleCloseDialog}
+        status={reportDialog.status}
+        progress={reportDialog.progress}
+      />
       
     </Box>
   );

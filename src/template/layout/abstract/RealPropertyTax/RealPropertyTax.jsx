@@ -1,13 +1,9 @@
 import { keyframes } from '@emotion/react';
-// import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-// import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import SearchIcon from '@mui/icons-material/Search';
 import { Autocomplete, Card, TextField, Tooltip } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-// import Collapse from '@mui/material/Collapse';
-// import IconButton from '@mui/material/IconButton';
 import {
   Dialog,
   DialogActions,
@@ -44,7 +40,7 @@ import { default as PopupDialog, default as PopupDialogView } from '../../../../
 import DailyTable from './TableData/DailyTable';
 import ReportTable from './TableData/ReportTable';
 import SummaryTable from './TableData/Summary';
-
+import GenerateReport from './TableData/GenerateReport';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   whiteSpace: 'nowrap',
@@ -156,6 +152,9 @@ function Row({ row }) {
 
 
 
+  
+
+    
   // 🟢 View Dialog Handlers
   const handleView = (row) => {
     setSelectedRowView(row);
@@ -468,6 +467,16 @@ function RealPropertyTax() {
   const [pendingSearchQuery, setPendingSearchQuery] = useState("");
 
 
+  const [reportDialog, setReportDialog] = useState({
+    open: false,
+    status: 'idle', // 'idle' | 'loading' | 'success' | 'error'
+    progress: 0
+  });
+
+  const handleCloseDialog = () => {
+    setReportDialog({ ...reportDialog, open: false });
+  };
+
   const [snackbar, setSnackbar] = useState({
         open: false,
         message: "",
@@ -475,6 +484,26 @@ function RealPropertyTax() {
       });
 
 
+      const handleGenerateReport = () => {
+        // Open dialog in loading state
+        setReportDialog({
+          open: true,
+          status: 'loading',
+          progress: 0
+        });
+    
+        // Simulate report generation
+        const interval = setInterval(() => {
+          setReportDialog(prev => {
+            const newProgress = prev.progress + 10;
+            if (newProgress >= 100) {
+              clearInterval(interval);
+              return { ...prev, status: 'success', progress: 100 };
+            }
+            return { ...prev, progress: newProgress };
+          });
+        }, 300);
+      };
 
   const [formData, setFormData] = useState(initialFormData);
 
@@ -851,6 +880,23 @@ const handleSearchClick = () => {
                 Daily Report
               </AnimatedButton>
             </Tooltip>
+
+            <Tooltip title="Generate Receipt Report">
+              <AnimatedButton
+                ref={dailyButtonRef}
+                variant="contained"
+                color="success"
+                startIcon={<IoToday size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+                onClick={handleGenerateReport}
+              >
+                Check Receipt
+              </AnimatedButton>
+            </Tooltip>
           </Box>
 
           <Box display="flex" gap={2}>
@@ -1039,6 +1085,13 @@ const handleSearchClick = () => {
           </Alert>
         </Snackbar>
       </Box>
+
+      <GenerateReport 
+        open={reportDialog.open}
+        onClose={handleCloseDialog}
+        status={reportDialog.status}
+        progress={reportDialog.progress}
+      />
     </Box>
   );
 }
