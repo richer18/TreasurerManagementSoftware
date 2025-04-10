@@ -82,6 +82,8 @@ const parseDate = (dateString) => {
 };
 
 
+
+
 useEffect(() => {
   const controller = new AbortController(); // To cancel fetch on unmount
   const signal = controller.signal;
@@ -143,6 +145,14 @@ useEffect(() => {
     [filteredData]
   );
 
+  useEffect(() => {
+    const initialComments = {};
+    filteredData.forEach((row, index) => {
+      initialComments[index] = row.comment || "";
+    });
+    setComments(initialComments);
+  }, [filteredData]);
+
   const handleSaveClick = async (rowIndex) => {
     const controller = new AbortController(); // To allow request cancellation
     const signal = controller.signal;
@@ -181,7 +191,7 @@ useEffect(() => {
       if (!response.ok) throw new Error(result.error || "Failed to update");
   
       console.log("✅ Update Successful:", result.message);
-      window.location.reload();
+      
       setShowButtons(false);
       setEditableRow(null);
     } catch (error) {
@@ -219,30 +229,29 @@ useEffect(() => {
   // };
 
   const handleUnderClick = (index, field) => {
-  setDialogField(field);
-  setIsAdding(true); // "Under" means adding
-  setSelectedDate(filteredData[index].date); // Store selected row's date
-
-  // Get the current value based on the field
-  let currentValue = 0;
-  switch (field) {
-    case "ctc":
-      currentValue = filteredData[index]?.CTCunder || 0;
-      break;
-    case "rpt":
-      currentValue = filteredData[index]?.RPTunder || 0;
-      break;
-    case "gfAndTf":
-      currentValue = filteredData[index]?.GFTFunder || 0;
-      break;
-    default:
-      console.error("❌ Invalid field:", field);
-      return;
-  }
-
-  setDialogInputValue(currentValue); // Set initial value in input field
-  setDialogOpen(true);
-};
+    setDialogField(field);
+    setIsAdding(true); // "Under" means adding
+    setSelectedDate(filteredData[index].date); // Store selected row's date
+  
+    let currentValue = 0;
+    switch (field) {
+      case "ctc":
+        currentValue = filteredData[index]?.adjustments?.ctc?.under || 0;
+        break;
+      case "rpt":
+        currentValue = filteredData[index]?.adjustments?.rpt?.under || 0;
+        break;
+      case "gfAndTf":
+        currentValue = filteredData[index]?.adjustments?.gfAndTf?.under || 0;
+        break;
+      default:
+        console.error("❌ Invalid field:", field);
+        return;
+    }
+  
+    setDialogInputValue(currentValue); // Set initial value in input field
+    setDialogOpen(true);
+  };
 
 // Opens the dialog with the proper field and adjustment type (isAdding=false means "Over")
 const handleOverClick = (index, field) => {
@@ -250,17 +259,16 @@ const handleOverClick = (index, field) => {
   setIsAdding(false); // "Over" means subtracting
   setSelectedDate(filteredData[index].date);
 
-  // Get the current value based on the field
   let currentValue = 0;
   switch (field) {
     case "ctc":
-      currentValue = filteredData[index]?.CTCover || 0;
+      currentValue = filteredData[index]?.adjustments?.ctc?.over || 0;
       break;
     case "rpt":
-      currentValue = filteredData[index]?.RPTover || 0;
+      currentValue = filteredData[index]?.adjustments?.rpt?.over || 0;
       break;
     case "gfAndTf":
-      currentValue = filteredData[index]?.GFTFover || 0;
+      currentValue = filteredData[index]?.adjustments?.gfAndTf?.over || 0;
       break;
     default:
       console.error("❌ Invalid field:", field);
@@ -419,9 +427,46 @@ const formatDateToYYYYMMDD = (dateString) => {
   };
   
   const handleExportCSV = () => {
-    // Your CSV export logic
-    console.log("Exporting to CSV", filteredData);
+    if (!filteredData.length) return;
+  
+    const headers = [
+      "Date",
+      "CTC",
+      "RPT",
+      "GF and TF",
+      "Due From",
+      "RCD Total",
+      "Remarks"
+    ];
+  
+    const rows = filteredData.map((row) => [
+      new Date(row.date).toLocaleDateString("en-US"),
+      row.ctc,
+      row.rpt,
+      row.gfAndTf,
+      row.dueFrom,
+      row.rcdTotal,
+      row.comment || ""
+    ]);
+  
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.map(val => `"${val}"`).join(","))
+    ].join("\n");
+  
+    // Trigger download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "report_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
+
+
   return (
     <div style={{ padding: "24px", backgroundColor: "#f5f7fa" }}>
     <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
@@ -521,6 +566,23 @@ const formatDateToYYYYMMDD = (dateString) => {
       flex: { xs: 1, sm: '0 0 auto' }
     }
   }}>
+     <Button
+      variant="contained"
+      color="primary"
+      startIcon={<DescriptionOutlined />}
+      onClick={handleGenerateReport}
+      sx={{
+        borderRadius: "6px",
+        textTransform: "none",
+        px: 3,
+        boxShadow: 'none',
+        '&:hover': {
+          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)'
+        }
+      }}
+    >
+      Generate Full Report
+    </Button>
     <Button
       variant="contained"
       color="primary"
@@ -536,7 +598,7 @@ const formatDateToYYYYMMDD = (dateString) => {
         }
       }}
     >
-      Generate Report
+      Check Report
     </Button>
     
     <Button

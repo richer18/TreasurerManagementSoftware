@@ -167,7 +167,7 @@ children: [
       },
       {
         segment: 'my-App/collection',
-        title: 'Collection Report',
+        title: 'Summary of Collection Report',
         icon: <DescriptionIcon />,
       },
     ],

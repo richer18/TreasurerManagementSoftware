@@ -2,7 +2,7 @@ import React from 'react'
 
 function collection() {
   return (
-    <div>collection</div>
+    <div>Summary of Collection</div>
   )
 }
 

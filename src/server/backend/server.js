@@ -4016,25 +4016,24 @@ app.get('/api/CedulaDailyCollection', (req, res) => {
 app.get("/api/fetch-report", (req, res) => {
   const sql = `
     SELECT
-    DATE_FORMAT(date, '%Y-%m-%d') AS "date",
-    COALESCE(GF, 0) AS "GF",
-    COALESCE(TF, 0) AS "TF",
-    COALESCE(dueFrom, 0) AS "dueFrom",
-    COALESCE(rcdTotal, 0) AS "rcdTotal",
-    COALESCE(comment, '') AS "comment",
+      DATE_FORMAT(date, '%Y-%m-%d') AS "date",
+      COALESCE(GF, 0) AS "GF",
+      COALESCE(TF, 0) AS "TF",
+      COALESCE(dueFrom, 0) AS "dueFrom",
+      COALESCE(comment, '') AS "comment",
 
-    -- Individual Adjustment Values
-    COALESCE(CTCunder, 0) AS "CTCunder",
-    COALESCE(CTCover, 0) AS "CTCover",
-    COALESCE(RPTunder, 0) AS "RPTunder",
-    COALESCE(RPTover, 0) AS "RPTover",
-    COALESCE(GFTFunder, 0) AS "GFTFunder",
-    COALESCE(GFTFover, 0) AS "GFTFover",
+      -- Adjustment Values
+      COALESCE(CTCunder, 0) AS "CTCunder",
+      COALESCE(CTCover, 0) AS "CTCover",
+      COALESCE(RPTunder, 0) AS "RPTunder",
+      COALESCE(RPTover, 0) AS "RPTover",
+      COALESCE(GFTFunder, 0) AS "GFTFunder",
+      COALESCE(GFTFover, 0) AS "GFTFover",
 
-    -- ✅ Computed Values
-    (COALESCE(ctc, 0) + COALESCE(CTCunder, 0) - COALESCE(CTCover, 0)) AS "ctc",
-    (COALESCE(rpt, 0) + COALESCE(RPTunder, 0) - COALESCE(RPTover, 0)) AS "rpt",
-    (COALESCE(gfAndTf, 0) + COALESCE(GFTFunder, 0) - COALESCE(GFTFover, 0)) AS "gfAndTf"
+      -- Raw Values
+      COALESCE(ctc, 0) AS raw_ctc,
+      COALESCE(rpt, 0) AS raw_rpt,
+      COALESCE(gfAndTf, 0) AS raw_gfAndTf
 
     FROM full_report_rcd
     ORDER BY date;
@@ -4043,23 +4042,39 @@ app.get("/api/fetch-report", (req, res) => {
   db.query(sql, (err, results) => {
     if (err) {
       console.error("❌ Error fetching data:", err);
-      res.status(500).send("Error fetching data");
-      return;
+      return res.status(500).send("Error fetching data");
     }
 
-    // ✅ Transform results to group adjustments
-    const formattedResults = results.map((row) => ({
-      ...row,
-      adjustments: {
-        ctc: { under: row.CTCunder, over: row.CTCover },
-        rpt: { under: row.RPTunder, over: row.RPTover },
-        gfAndTf: { under: row.GFTFunder, over: row.GFTFover },
-      },
-    }));
+    const formattedResults = results.map((row) => {
+      const ctc = (row.raw_ctc || 0) + (row.CTCunder || 0) - (row.CTCover || 0);
+      const rpt = (row.raw_rpt || 0) + (row.RPTunder || 0) - (row.RPTover || 0);
+      const gfAndTf = (row.raw_gfAndTf || 0) + (row.GFTFunder || 0) - (row.GFTFover || 0);
+      const dueFrom = row.dueFrom || 0;
+
+      const rcdTotal = ctc + rpt + gfAndTf + dueFrom;
+
+      return {
+        date: row.date,
+        GF: row.GF,
+        TF: row.TF,
+        dueFrom,
+        comment: row.comment,
+        ctc,
+        rpt,
+        gfAndTf,
+        rcdTotal, // ✅ Corrected and visible in the frontend
+        adjustments: {
+          ctc: { under: row.CTCunder, over: row.CTCover },
+          rpt: { under: row.RPTunder, over: row.RPTover },
+          gfAndTf: { under: row.GFTFunder, over: row.GFTFover },
+        },
+      };
+    });
 
     res.json(formattedResults);
   });
 });
+
 
 
 
@@ -4399,6 +4414,101 @@ app.post("/api/generate-report", (req, res) => {
     }));
 
     res.json({ data: processedData });
+  });
+});
+
+app.get('/api/TaxOnBusinessBreakdown', (req, res) => {
+  const { months, year } = req.query;
+  const monthList = months ? months.split(',').map(Number) : null;
+
+  let sql = `
+    SELECT
+      Manufacturing,
+      Distributor,
+      Retailing,
+      Financial,
+      Other_Business_Tax,
+      Sand_Gravel,
+      Fines_Penalties
+    FROM general_fund_data
+    WHERE 1=1`;
+
+  if (year) {
+    sql += ` AND YEAR(date) = ${year}`;
+  }
+
+  if (monthList?.length) {
+    sql += ` AND MONTH(date) IN (${monthList.join(',')})`;
+  }
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    const summedData = results.reduce((acc, row) => {
+      Object.keys(row).forEach(key => {
+        acc[key] = (acc[key] || 0) + (row[key] || 0);
+      });
+      return acc;
+    }, {});
+
+    res.json(summedData);
+  });
+});
+
+app.get('/api/TaxOnBusinessTotalESREBox', (req, res) => {
+  const { year, months } = req.query;
+  
+  // Validate input parameters
+  if (!year || isNaN(year)) {
+    return res.status(400).json({ 
+      error: 'Invalid year parameter',
+      code: 'INVALID_YEAR'
+    });
+  }
+
+  const monthList = months ? months.split(',').map(Number).filter(m => m >= 1 && m <= 12) : [];
+  
+  let sql = `
+    SELECT 
+      COALESCE(SUM(
+        Manufacturing + Distributor + Retailing + 
+        Financial + Other_Business_Tax + 
+        Sand_Gravel + Fines_Penalties
+      ), 0) AS total 
+    FROM general_fund_data
+    WHERE YEAR(date) = ?
+  `;
+
+  const params = [year];
+
+  if (monthList.length > 0) {
+    sql += ` AND MONTH(date) IN (${'?,'.repeat(monthList.length).slice(0, -1)})`;
+    params.push(...monthList);
+  }
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({
+        error: 'Database operation failed',
+        code: 'DB_ERROR'
+      });
+    }
+    
+    // Ensure numeric value
+    const total = Number(results[0]?.total) || 0;
+    
+    res.json({ 
+      total: total,
+      currency: 'USD',
+      meta: {
+        year: year,
+        months: monthList
+      }
+    });
   });
 });
 
