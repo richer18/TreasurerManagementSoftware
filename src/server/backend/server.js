@@ -16,21 +16,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-const dbConfig = {
-  host: '192.168.101.108',
-  user: 'treasurer_root2',
-  password: '$p4ssworD!',
-  database: 'treasurer_management_app',
-  port: 3307
-};
-
 // const dbConfig = {
-//   host: 'localhost',
-//   user: 'root',
-//   password: '',
+//   host: '192.168.101.108',
+//   user: 'treasurer_root2',
+//   password: '$p4ssworD!',
 //   database: 'treasurer_management_app',
 //   port: 3307
 // };
+
+const dbConfig = {
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'treasurer_management_app',
+  port: 3307
+};
 
 const dbConfigs = {
   host: 'localhost',
@@ -1873,6 +1873,8 @@ app.get('/api/generalFundDataAll', (req, res) => {
   });
 });
 
+
+
 app.get('/api/generalFundDataReport', (req, res) => {
   const { month, year } = req.query;
 
@@ -1896,6 +1898,7 @@ app.get('/api/generalFundDataReport', (req, res) => {
     }
   });
 });
+
 
 app.get('/api/trustFundDataReport', (req, res) => {
   const { month, year } = req.query;
@@ -1943,9 +1946,10 @@ app.get('/api/cedulaSummaryCollectionDataReport', (req, res) => {
 
   // Optimized query using date range (Better performance with indexes)
   const query = `
-    SELECT Totalamountpaid FROM cedula
-    WHERE DATEISSUED BETWEEN ? AND ?
-  `;
+  SELECT SUM(BASICTAXDUE + BUSTAXDUE + SALTAXDUE + RPTAXDUE + INTEREST) AS Totalamountpaid
+  FROM cedula
+  WHERE DATEISSUED BETWEEN ? AND ?
+`;
 
   db.query(query, [startDate, endDate], (err, results) => {
     if (err) {
@@ -2157,87 +2161,48 @@ app.post('/api/save-trust-fund', (req, res) => {
   });
 });
 
-app.post('/api/update-trust-fund/:id', (req, res) => {
-  const { id } = req.params; // Extract ID from request parameters
-  const {
-    DATE,
-    NAME,
-    RECEIPT_NO,
-    CASHIER,
-    TYPE_OF_RECEIPT,
-    TOTAL,
-    BUILDING_PERMIT_FEE,
-    LOCAL_80_PERCENT,
-    TRUST_FUND_15_PERCENT,
-    NATIONAL_5_PERCENT,
-    LIVESTOCK_DEV_FUND,
-    LOCAL_80_PERCENT_LIVESTOCK,
-    NATIONAL_20_PERCENT,
-    DIVING_FEE,
-    LOCAL_40_PERCENT_DIVE_FEE,
-    FISHERS_30_PERCENT,
-    BRGY_30_PERCENT,
-    ELECTRICAL_FEE,
-    ZONING_FEE,
-  } = req.body;
+app.put('/api/update-trust-fund/:id', (req, res) => {
+  const { id } = req.params;
+
+  // Only allow updates to these specific fields
+  const allowedFields = [
+    'DATE', 'NAME', 'RECEIPT_NO', 'CASHIER', 'TYPE_OF_RECEIPT', 'TOTAL',
+    'BUILDING_PERMIT_FEE', 'LOCAL_80_PERCENT', 'TRUST_FUND_15_PERCENT', 'NATIONAL_5_PERCENT',
+    'LIVESTOCK_DEV_FUND', 'LOCAL_80_PERCENT_LIVESTOCK', 'NATIONAL_20_PERCENT',
+    'DIVING_FEE', 'LOCAL_40_PERCENT_DIVE_FEE', 'FISHERS_30_PERCENT',
+    'BRGY_30_PERCENT', 'ELECTRICAL_FEE', 'ZONING_FEE'
+  ];
+
+  let setClauses = [];
+  let values = [];
+
+  for (const key of allowedFields) {
+    if (req.body[key] !== undefined) {
+      setClauses.push(`${key} = ?`);
+      values.push(req.body[key]);
+    }
+  }
+
+  // If no fields provided, return error
+  if (setClauses.length === 0) {
+    return res.status(400).json({ message: 'No valid fields provided for update.' });
+  }
 
   const query = `
     UPDATE trust_fund_data
-    SET
-      DATE = ?,
-      NAME = ?,
-      RECEIPT_NO = ?,
-      CASHIER = ?,
-      TYPE_OF_RECEIPT = ?,
-      TOTAL = ?,
-      BUILDING_PERMIT_FEE = ?,
-      LOCAL_80_PERCENT = ?,
-      TRUST_FUND_15_PERCENT = ?,
-      NATIONAL_5_PERCENT = ?,
-      LIVESTOCK_DEV_FUND = ?,
-      LOCAL_80_PERCENT_LIVESTOCK = ?,
-      NATIONAL_20_PERCENT = ?,
-      DIVING_FEE = ?,
-      LOCAL_40_PERCENT_DIVE_FEE = ?,
-      FISHERS_30_PERCENT = ?,
-      BRGY_30_PERCENT = ?,
-      ELECTRICAL_FEE = ?,
-      ZONING_FEE = ?
+    SET ${setClauses.join(', ')}
     WHERE ID = ?
   `;
 
-  db.query(
-    query,
-    [
-      DATE,
-      NAME,
-      RECEIPT_NO,
-      CASHIER,
-      TYPE_OF_RECEIPT,
-      TOTAL,
-      BUILDING_PERMIT_FEE,
-      LOCAL_80_PERCENT,
-      TRUST_FUND_15_PERCENT,
-      NATIONAL_5_PERCENT,
-      LIVESTOCK_DEV_FUND,
-      LOCAL_80_PERCENT_LIVESTOCK,
-      NATIONAL_20_PERCENT,
-      DIVING_FEE,
-      LOCAL_40_PERCENT_DIVE_FEE,
-      FISHERS_30_PERCENT,
-      BRGY_30_PERCENT,
-      ELECTRICAL_FEE,
-      ZONING_FEE,
-      id,
-    ],
-    (err, result) => {
-      if (err) {
-        console.error('Error updating trust fund:', err);
-        return res.status(500).json({ message: 'Failed to update trust fund.', error: err });
-      }
-      res.status(200).json({ message: 'Trust fund updated successfully.' });
+  values.push(id); // Add the ID as the final param
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error updating trust fund:', err);
+      return res.status(500).json({ message: 'Failed to update trust fund.', error: err });
     }
-  );
+    res.status(200).json({ message: 'Trust fund updated successfully.' });
+  });
 });
 
 
@@ -4512,6 +4477,443 @@ app.get('/api/TaxOnBusinessTotalESREBox', (req, res) => {
   });
 });
 
+app.get('/api/RegulatoryFeesAndChargesTotalESREBox', (req, res) => {
+  const { year, months } = req.query;
+
+  // Validate input parameters
+  if (!year || isNaN(year)) {
+    return res.status(400).json({ 
+      error: 'Invalid year parameter',
+      code: 'INVALID_YEAR'
+    });
+  }
+
+  const monthList = months ? months.split(',').map(Number).filter(m => m >= 1 && m <= 12) : [];
+
+  let monthConditionGen = '';
+  let monthConditionTrust = '';
+  const paramsGen = [year];
+  const paramsTrust = [year];
+
+  if (monthList.length > 0) {
+    const placeholders = monthList.map(() => '?').join(',');
+    monthConditionGen = ` AND MONTH(date) IN (${placeholders})`;
+    monthConditionTrust = ` AND MONTH(DATE) IN (${placeholders})`;
+    paramsGen.push(...monthList);
+    paramsTrust.push(...monthList);
+  }
+
+  const sql = `
+    SELECT 
+  (
+    SELECT COALESCE(SUM(
+      COALESCE(Weighs_Measure, 0) + COALESCE(Tricycle_Operators, 0) + COALESCE(Occupation_Tax, 0) +
+      COALESCE(Docking_Mooring_Fee, 0) + COALESCE(Cockpit_Prov_Share, 0) + COALESCE(Cockpit_Local_Share, 0) +
+      COALESCE(Sultadas, 0) + COALESCE(Miscellaneous_Fee, 0) + COALESCE(Fishing_Permit_Fee, 0) +
+      COALESCE(Sale_of_Agri_Prod, 0) + COALESCE(Sale_of_Acct_Form, 0) +
+      COALESCE(Reg_of_Birth, 0) + COALESCE(Marriage_Fees, 0) + COALESCE(Burial_Fees, 0) +
+      COALESCE(Correction_of_Entry, 0) + COALESCE(Cert_of_Ownership, 0) + COALESCE(Cert_of_Transfer, 0) +
+      COALESCE(Mayors_Permit, 0)
+    ), 0)
+    FROM general_fund_data
+    WHERE YEAR(date) = ? ${monthConditionGen}
+  ) +
+  (
+    SELECT COALESCE(SUM(
+      COALESCE(LIVESTOCK_DEV_FUND, 0) + COALESCE(DIVING_FEE, 0) +
+      COALESCE(BUILDING_PERMIT_FEE, 0) + COALESCE(ELECTRICAL_FEE, 0) + COALESCE(ZONING_FEE, 0)
+    ), 0)
+    FROM trust_fund_data
+    WHERE YEAR(DATE) = ? ${monthConditionTrust}
+  ) AS total;
+  `;
+
+  const finalParams = [...paramsGen, ...paramsTrust];
+
+  db.query(sql, finalParams, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({
+        error: 'Database operation failed',
+        code: 'DB_ERROR'
+      });
+    }
+
+    const total = Number(results[0]?.total) || 0;
+
+    res.json({
+      total: total,
+      currency: 'USD',
+      meta: {
+        year: parseInt(year),
+        months: monthList
+      }
+    });
+  });
+});
+
+
+app.get('/api/ServiceUserChargesBreakdown', (req, res) => {
+  const { months, year } = req.query;
+
+  if (!year || isNaN(year)) {
+    return res.status(400).json({
+      error: 'Invalid or missing "year" parameter',
+      code: 'INVALID_YEAR'
+    });
+  }
+
+  const monthList = months ? months.split(',').map(Number).filter(m => m >= 1 && m <= 12) : [];
+
+  const baseWhere = `YEAR(date) = ?`;
+  const baseParams = [year];
+
+  let monthCondition = '';
+  if (monthList.length > 0) {
+    const placeholders = monthList.map(() => '?').join(',');
+    monthCondition = ` AND MONTH(date) IN (${placeholders})`;
+    baseParams.push(...monthList);
+  }
+
+  const sql = `
+    SELECT category, SUM(total) AS total_amount FROM (
+      SELECT 'Secretaries Fee' AS category, SUM(COALESCE(Secretaries_Fee, 0) + COALESCE(Police_Report_Clearance, 0)) AS total
+      FROM general_fund_data WHERE ${baseWhere} ${monthCondition}
+
+      UNION ALL
+      SELECT 'Garbage Fees', SUM(COALESCE(Garbage_Fees, 0))
+      FROM general_fund_data WHERE ${baseWhere} ${monthCondition}
+
+      UNION ALL
+      SELECT 'Med./Lab Fees', SUM(COALESCE(Med_Dent_Lab_Fees, 0))
+      FROM general_fund_data WHERE ${baseWhere} ${monthCondition}
+    ) AS summary
+    GROUP BY category;
+  `;
+
+  // Duplicate the params once for each SELECT block (3 times)
+  const paramsGeneral = [...baseParams, ...baseParams, ...baseParams];
+
+  db.query(sql, paramsGeneral, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error', code: 'DB_ERROR' });
+    }
+
+    res.json({
+      year: parseInt(year),
+      months: monthList,
+      currency: 'USD',
+      breakdown: results
+    });
+  });
+});
+
+
+app.get('/api/ServiceUserChargesTotalESREBox', (req, res) => {
+  const { year, months } = req.query;
+
+  // Validate year
+  if (!year || isNaN(year)) {
+    return res.status(400).json({
+      error: 'Invalid year parameter',
+      code: 'INVALID_YEAR'
+    });
+  }
+
+  const monthList = months ? months.split(',').map(Number).filter(m => m >= 1 && m <= 12) : [];
+
+  const params = [year];
+  let monthCondition = '';
+
+  if (monthList.length > 0) {
+    const placeholders = monthList.map(() => '?').join(',');
+    monthCondition = ` AND MONTH(date) IN (${placeholders})`;
+    params.push(...monthList);
+  }
+
+  const sql = `
+    SELECT COALESCE(SUM(
+      COALESCE(Secretaries_Fee, 0) + COALESCE(Police_Report_Clearance, 0) +
+      COALESCE(Garbage_Fees, 0) +
+      COALESCE(Med_Dent_Lab_Fees, 0)
+    ), 0) AS total
+    FROM general_fund_data
+    WHERE YEAR(date) = ? ${monthCondition};
+  `;
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({
+        error: 'Database operation failed',
+        code: 'DB_ERROR'
+      });
+    }
+
+    const total = Number(results[0]?.total || 0);
+
+    res.json({
+      total,
+      currency: 'USD',
+      meta: {
+        year: parseInt(year),
+        months: monthList
+      }
+    });
+  });
+});
+
+app.get('/api/RegulatoryFeesAndChargesBreakdown', (req, res) => {
+  const { months, year } = req.query;
+
+  // Validate input
+  if (!year || isNaN(year)) {
+    return res.status(400).json({
+      error: 'Invalid or missing "year" parameter',
+      code: 'INVALID_YEAR'
+    });
+  }
+
+  const monthList = months ? months.split(',').map(Number).filter(m => m >= 1 && m <= 12) : [];
+
+  let monthConditionGeneral = '';
+  let monthConditionTrust = '';
+  const paramsGeneral = [year];
+  const paramsTrust = [year];
+
+  if (monthList.length > 0) {
+    const placeholders = monthList.map(() => '?').join(',');
+    monthConditionGeneral = ` AND MONTH(date) IN (${placeholders})`;
+    monthConditionTrust = ` AND MONTH(DATE) IN (${placeholders})`;
+    paramsGeneral.push(...monthList);
+    paramsTrust.push(...monthList);
+  }
+
+  const sql = `
+    SELECT category, SUM(total) AS total_amount FROM (
+      SELECT 'WEIGHS AND MEASURE' AS category, SUM(Weighs_Measure) AS total FROM general_fund_data
+      WHERE YEAR(date) = ? ${monthConditionGeneral}
+      UNION ALL
+      SELECT 'TRICYCLE PERMIT FEE', SUM(Tricycle_Operators) FROM general_fund_data
+      WHERE YEAR(date) = ? ${monthConditionGeneral}
+      UNION ALL
+      SELECT 'OCCUPATION TAX', SUM(Occupation_Tax) FROM general_fund_data
+      WHERE YEAR(date) = ? ${monthConditionGeneral}
+      UNION ALL
+      SELECT 'OTHER PERMIST AND LICENSE', 
+             SUM(Docking_Mooring_Fee + Cockpit_Prov_Share + Cockpit_Local_Share + Sultadas + Miscellaneous_Fee +
+                 Fishing_Permit_Fee + Sale_of_Agri_Prod + Sale_of_Acct_Form) 
+      FROM general_fund_data WHERE YEAR(date) = ? ${monthConditionGeneral}
+      UNION ALL
+      SELECT 'OTHER PERMIST AND LICENSE', 
+             SUM(LIVESTOCK_DEV_FUND + DIVING_FEE) 
+      FROM trust_fund_data WHERE YEAR(DATE) = ? ${monthConditionTrust}
+      UNION ALL
+      SELECT 'CIVIL REGISTRATION', 
+             SUM(Reg_of_Birth + Marriage_Fees + Burial_Fees + Correction_of_Entry) 
+      FROM general_fund_data WHERE YEAR(date) = ? ${monthConditionGeneral}
+      UNION ALL
+      SELECT 'CATTLE/ANIMAL REGISTRATION FEES', 
+             SUM(Cert_of_Ownership + Cert_of_Transfer) 
+      FROM general_fund_data WHERE YEAR(date) = ? ${monthConditionGeneral}
+      UNION ALL
+      SELECT 'BUILDING PERMITS', 
+             SUM(BUILDING_PERMIT_FEE + ELECTRICAL_FEE) 
+      FROM trust_fund_data WHERE YEAR(DATE) = ? ${monthConditionTrust}
+      UNION ALL
+      SELECT 'BUSINESS PERMITS', SUM(Mayors_Permit) FROM general_fund_data
+      WHERE YEAR(date) = ? ${monthConditionGeneral}
+      UNION ALL
+      SELECT 'ZONIAL/LOCATION PERMIT FEES', 
+             SUM(ZONING_FEE) FROM trust_fund_data
+      WHERE YEAR(DATE) = ? ${monthConditionTrust}
+    ) AS summary
+    GROUP BY category;
+  `;
+
+  const finalParams = [
+    ...paramsGeneral, // 1
+    ...paramsGeneral, // 2
+    ...paramsGeneral, // 3
+    ...paramsGeneral, // 4
+    ...paramsTrust,   // 5
+    ...paramsGeneral, // 6
+    ...paramsGeneral, // 7
+    ...paramsTrust,   // 8
+    ...paramsGeneral, // 9
+    ...paramsTrust    // 10
+  ];
+
+  db.query(sql, finalParams, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error', code: 'DB_ERROR' });
+    }
+
+    res.json({
+      year: parseInt(year),
+      months: monthList,
+      currency: 'USD',
+      breakdown: results
+    });
+  });
+});
+
+app.get('/api/ReceiptsEconomicEnterprisesTotalESREBox', (req, res) => {
+  const { year, months } = req.query;
+
+  // Validate year
+  if (!year || isNaN(year)) {
+    return res.status(400).json({
+      error: 'Invalid year parameter',
+      code: 'INVALID_YEAR'
+    });
+  }
+
+  const monthList = months ? months.split(',').map(Number).filter(m => m >= 1 && m <= 12) : [];
+
+  let sql = `
+    SELECT 
+      COALESCE(SUM(
+        COALESCE(Slaughter_House_Fee, 0) + COALESCE(Stall_Fees, 0) + COALESCE(Cash_Tickets, 0) +
+        COALESCE(Water_Fees, 0) + COALESCE(Rental_of_Equipment, 0)
+      ), 0) AS total 
+    FROM general_fund_data
+    WHERE YEAR(date) = ?
+  `;
+
+  const params = [year];
+
+  if (monthList.length > 0) {
+    const placeholders = monthList.map(() => '?').join(',');
+    sql += ` AND MONTH(date) IN (${placeholders})`;
+    params.push(...monthList);
+  }
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({
+        error: 'Database operation failed',
+        code: 'DB_ERROR'
+      });
+    }
+
+    const total = Number(results[0]?.total || 0);
+
+    res.json({
+      total,
+      currency: 'USD',
+      meta: {
+        year: parseInt(year),
+        months: monthList
+      }
+    });
+  });
+});
+
+app.get('/api/OtherTaxesTotalESREBox', (req, res) => {
+  const { year, months } = req.query;
+
+  // Validate input parameters
+  if (!year || isNaN(year)) {
+    return res.status(400).json({ 
+      error: 'Invalid year parameter',
+      code: 'INVALID_YEAR'
+    });
+  }
+
+  const monthList = months
+    ? months.split(',').map(Number).filter(m => m >= 1 && m <= 12)
+    : [];
+
+  let sql = `
+    SELECT 
+      COALESCE(SUM(
+        COALESCE(BASICTAXDUE, 0) + COALESCE(BUSTAXDUE, 0) +
+        COALESCE(SALTAXDUE, 0) + COALESCE(RPTAXDUE, 0) +
+        COALESCE(INTEREST, 0)
+      ), 0) AS total 
+    FROM cedula
+    WHERE YEAR(DATEISSUED) = ?
+  `;
+
+  const params = [year];
+
+  if (monthList.length > 0) {
+    const placeholders = monthList.map(() => '?').join(',');
+    sql += ` AND MONTH(DATEISSUED) IN (${placeholders})`;
+    params.push(...monthList);
+  }
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({
+        error: 'Database operation failed',
+        code: 'DB_ERROR'
+      });
+    }
+
+    const total = Number(results[0]?.total || 0);
+
+    res.json({
+      total,
+      currency: 'USD',
+      meta: {
+        year: parseInt(year),
+        months: monthList
+      }
+    });
+  });
+});
+
+app.get('/api/ReceiptsFromEconomicEntBreakdown', (req, res) => {
+  const { months, year } = req.query;
+  const monthList = months ? months.split(',').map(Number) : null;
+
+  let sql = `
+    SELECT
+      Slaughter_House_Fee,
+      Stall_Fees,
+      Cash_Tickets,
+      Water_Fees,
+      Rental_of_Equipment
+    FROM general_fund_data
+    WHERE 1=1`;
+
+  if (year) {
+    sql += ` AND YEAR(date) = ${year}`;
+  }
+
+  if (monthList?.length) {
+    sql += ` AND MONTH(date) IN (${monthList.join(',')})`;
+  }
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    const summedData = results.reduce((acc, row) => {
+      Object.keys(row).forEach(key => {
+        acc[key] = (acc[key] || 0) + (row[key] || 0);
+      });
+      return acc;
+    }, {});
+
+    const categorizedData = {
+      'Slaughterhouse Operations': summedData.Slaughter_House_Fee || 0,
+      'Market Operations': (summedData.Stall_Fees || 0) + (summedData.Cash_Tickets || 0),
+      'Water Work System Operations': summedData.Water_Fees || 0,
+      'Lease/Rental Facilities': summedData.Rental_of_Equipment || 0,
+    };
+
+    res.json(categorizedData);
+  });
+});
 
 
 app.listen(port, () => {
