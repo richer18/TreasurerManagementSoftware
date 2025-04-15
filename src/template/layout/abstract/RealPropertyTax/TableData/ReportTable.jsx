@@ -100,22 +100,22 @@ const formatCurrency = (value) => {
   
  
 useEffect(() => {
-  // Define all API endpoints with their identification keys
   const apiEndpoints = [
-    { key: "LandSharingData", url: `${BASE_URL}/api/LandSharingData` },
-    { key: "sefLandSharingData", url: `${BASE_URL}/api/sefLandSharingData` },
-    { key: "buildingSharingData", url: `${BASE_URL}/api/buildingSharingData` },
-    { key: "sefBuildingSharingData", url: `${BASE_URL}/api/sefBuildingSharingData` },
+    { key: "LandSharingData", url: "/api/LandSharingData" },
+    { key: "sefLandSharingData", url: "/api/sefLandSharingData" },
+    { key: "buildingSharingData", url: "/api/buildingSharingData" },
+    { key: "sefBuildingSharingData", url: "/api/sefBuildingSharingData" },
   ];
 
   // Fetch all data concurrently
   const fetchAllData = async () => {
     try {
+      const query = `?month=${month?.value || ""}&year=${year?.value || ""}`;
+
       const responses = await Promise.all(
-        apiEndpoints.map((api) => axios.get(api.url))
+        apiEndpoints.map((api) => axios.get(`${BASE_URL}${api.url}${query}`))
       );
 
-      // Initialize updatedSharingData
       const updatedSharingData = Object.fromEntries(
         apiEndpoints.map(({ key }) => [
           key,
@@ -132,9 +132,10 @@ useEffect(() => {
         const apiKey = apiEndpoints[index].key;
         const data = response.data;
 
-        // Ensure the data is an array
         if (!Array.isArray(data)) {
-          console.error(`Invalid data format for ${apiKey}: Expected an array.`);
+          console.error(
+            `Invalid data format for ${apiKey}: Expected an array.`
+          );
           return;
         }
 
@@ -150,7 +151,6 @@ useEffect(() => {
         });
       });
 
-      // Update the state with fetched data
       setSharingData(updatedSharingData);
     } catch (err) {
       console.error("Error fetching sharing data:", err);
@@ -158,7 +158,7 @@ useEffect(() => {
   };
 
   fetchAllData();
-}, [defaultFields]); // Ensure `defaultFields` is stable
+}, [month, year, defaultFields]);
 
   const handleMonthChange = (event, value) => {
     setMonth(value || { label: 'January', value: '1' });
