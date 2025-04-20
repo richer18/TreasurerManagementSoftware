@@ -27,6 +27,8 @@ import RegulatoryFeesDialogContent from "./component/RegulatoryFeeAndChargesDial
 import ServiceUserChargesDialogContent from "./component/ServiceUserChargesDialogContent";
 import TaxOnBusinessDialogContent from "./component/TaxOnBusinessDialogContent";
 
+import RealPropertyTaxBasicDialogContent from "./component/RealPropertyTaxBasicDialogContent";
+
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import BusinessIcon from "@mui/icons-material/Business";
 import GavelIcon from "@mui/icons-material/Gavel";
@@ -77,7 +79,7 @@ const getIcon = (title) => {
       return <AttachMoneyIcon />;
     case "OTHER INCOME RECEIPTS":
       return <PaymentsIcon />;
-    case "RPT BASIC":
+    case "Real Property Tax Basic":
       return <PaymentsIcon />;
     case "RPT SEF":
       return <PaymentsIcon />;
@@ -125,6 +127,15 @@ export default function Esre() {
     error: null,
   });
 
+  const [realPropertyTaxData, setRealPropertyTaxData] = useState({
+    value: 0,
+    loading: true,
+    error: null,
+  });
+
+
+  
+
   // Filter options
   const quarterOptions = [
     "Q1 - Jan, Feb, Mar",
@@ -166,22 +177,30 @@ export default function Esre() {
           error: null,
         }));
         setOtherTaxesData((prev) => ({ ...prev, loading: true, error: null }));
+        setRealPropertyTaxData((prev) => ({
+          ...prev,
+          loading: true,
+          error: null,
+        }));
 
-        const [taxRes, regRes, serRes, reeRes, otRes] = await Promise.all([
+        const [taxRes, regRes, serRes, reeRes, otRes,basicRes] = await Promise.all([
           fetch(
-            `http://192.168.101.108:3001/api/TaxOnBusinessTotalESREBox?${params}`
+            `http://localhost:3001/api/TaxOnBusinessTotalESREBox?${params}`
           ),
           fetch(
-            `http://192.168.101.108:3001/api/RegulatoryFeesAndChargesTotalESREBox?${params}`
+            `http://localhost:3001/api/RegulatoryFeesAndChargesTotalESREBox?${params}`
           ),
           fetch(
-            `http://192.168.101.108:3001/api/ServiceUserChargesTotalESREBox?${params}`
+            `http://localhost:3001/api/ServiceUserChargesTotalESREBox?${params}`
           ),
           fetch(
-            `http://192.168.101.108:3001/api/ReceiptsEconomicEnterprisesTotalESREBox?${params}`
+            `http://localhost:3001/api/ReceiptsEconomicEnterprisesTotalESREBox?${params}`
           ),
           fetch(
-            `http://192.168.101.108:3001/api/OtherTaxesTotalESREBox?${params}`
+            `http://localhost:3001/api/OtherTaxesTotalESREBox?${params}`
+          ),
+          fetch(
+            `http://localhost:3001/api/RealPropertyTaxSharingTotalBox?${params}`
           ),
         ]);
 
@@ -194,13 +213,14 @@ export default function Esre() {
           return res.json();
         };
 
-        const [taxData, regData, serData, reeData, otsData] = await Promise.all(
+        const [taxData, regData, serData, reeData, otsData,basicData] = await Promise.all(
           [
             checkJson(taxRes),
             checkJson(regRes),
             checkJson(serRes),
             checkJson(reeRes),
             checkJson(otRes),
+            checkJson(basicRes),
           ]
         );
 
@@ -235,6 +255,12 @@ export default function Esre() {
         ) {
           throw new Error("Invalid structure in regulatory data");
         }
+        if (
+          typeof basicData.total === "undefined" ||
+          typeof basicData.currency === "undefined"
+        ) {
+          throw new Error("Invalid structure in RealPropertyTax Basic data");
+        }
 
         setTaxBusinessData({
           value: taxData.total,
@@ -258,6 +284,11 @@ export default function Esre() {
         });
         setOtherTaxesData({
           value: otsData.total,
+          loading: false,
+          error: null,
+        });
+        setRealPropertyTaxData({
+          value: basicData.total,
           loading: false,
           error: null,
         });
@@ -285,6 +316,11 @@ export default function Esre() {
           error: `Data load failed: ${err.message}`,
         });
         setOtherTaxesData({
+          value: 0,
+          loading: false,
+          error: `Data load failed: ${err.message}`,
+        });
+        setRealPropertyTaxData({
           value: 0,
           loading: false,
           error: `Data load failed: ${err.message}`,
@@ -353,8 +389,8 @@ export default function Esre() {
     },
     {
       title: "Real Property Tax Basic",
-      value: "-2.3%",
-      trend: "-0.5%",
+      value: formatValue(realPropertyTaxData),
+      trend: "-5.5%",
       trendIcon: <TrendingDownIcon color="error" />,
       icon: getIcon("Real Property Tax Basic"),
       color: "#ede7f6",
@@ -409,7 +445,9 @@ export default function Esre() {
       <OtherTaxesDialogContent quarter={selectedQuarter} year={selectedYear} />
     ),
     "OTHER INCOME RECEIPTS": <OtherIncomeDialogContent />,
-    "RPT BASIC": <OtherIncomeDialogContent />,
+    "Real Property Tax Basic": (
+      <RealPropertyTaxBasicDialogContent quarter={selectedQuarter} year={selectedYear} />
+    ),
     "RPT SEF": <OtherIncomeDialogContent />,
     "OVERALL TOTAL": <OtherIncomeDialogContent />,
   };

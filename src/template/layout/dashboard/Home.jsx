@@ -58,6 +58,11 @@ const NAVIGATION = [
         title: 'Community Tax Certificate',
         icon: <DescriptionIcon />,
       },
+      {
+        segment: 'my-App/other-income-receipts',
+        title: 'Other Income Receipts',
+        icon: <DescriptionIcon />,
+      },
     ],
   },
   {

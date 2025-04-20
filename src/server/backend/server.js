@@ -14,21 +14,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-const dbConfig = {
-  host: '192.168.101.108',
-  user: 'treasurer_root2',
-  password: '$p4ssworD!',
-  database: 'treasurer_management_app',
-  port: 3307
-};
-
 // const dbConfig = {
-//   host: "localhost",
-//   user: "root",
-//   password: "",
-//   database: "treasurer_management_app",
-//   port: 3307,
+//   host: '192.168.101.108',
+//   user: 'treasurer_root2',
+//   password: '$p4ssworD!',
+//   database: 'treasurer_management_app',
+//   port: 3307
 // };
+
+const dbConfig = {
+  host: "localhost",
+  user: "root",
+  password: "",
+  database: "treasurer_management_app",
+  port: 3307,
+};
 
 const dbConfigs = {
   host: "localhost",
@@ -5231,11 +5231,11 @@ app.get("/api/OtherTaxesBreakdown", (req, res) => {
   `;
 
   if (year) {
-    sql += ` AND YEAR(date) = ${db.escape(year)}`;
+    sql += ` AND YEAR(DATEISSUED) = ${db.escape(year)}`;
   }
 
   if (monthList?.length) {
-    sql += ` AND MONTH(date) IN (${monthList.map((m) => db.escape(m)).join(",")})`;
+    sql += ` AND MONTH(DATEISSUED) IN (${monthList.map((m) => db.escape(m)).join(",")})`;
   }
 
   db.query(sql, (err, results) => {
@@ -5254,6 +5254,66 @@ app.get("/api/OtherTaxesBreakdown", (req, res) => {
     res.json(summedData);
   });
 });
+
+app.get("/api/RealPropertyTaxSharingTotalBox", (req, res) => {
+  const { year, months } = req.query;
+
+  // Validate input parameters
+  if (!year || isNaN(year)) {
+    return res.status(400).json({
+      error: "Invalid year parameter",
+      code: "INVALID_YEAR",
+    });
+  }
+
+  const monthList = months
+    ? months
+        .split(",")
+        .map(Number)
+        .filter((m) => m >= 1 && m <= 12)
+    : [];
+
+  let sql = `
+    SELECT 
+      COALESCE(SUM(
+        IFNULL(current_year, 0) - IFNULL(current_discounts, 0) +
+        IFNULL(prev_year, 0) + IFNULL(prior_years, 0) +
+        IFNULL(current_penalties, 0) + IFNULL(prev_penalties, 0) + IFNULL(prior_penalties, 0)
+      ), 0) AS total
+    FROM real_property_tax_data
+    WHERE (status LIKE 'LAND%' OR status IN ('MACHINERY', 'BLDG-RES', 'BLDG-COMML', 'BLDG-INDUS'))
+      AND YEAR(date) = ?
+  `;
+
+  const params = [year];
+
+  if (monthList.length > 0) {
+    sql += ` AND MONTH(date) IN (${Array(monthList.length).fill("?").join(",")})`;
+    params.push(...monthList);
+  }
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({
+        error: "Database operation failed",
+        code: "DB_ERROR",
+      });
+    }
+
+    const total = Number(results[0]?.total) || 0;
+
+    res.json({
+      total: total,
+      currency: "USD",
+      meta: {
+        year: Number(year),
+        months: monthList,
+      },
+    });
+  });
+});
+
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

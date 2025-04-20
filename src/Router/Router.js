@@ -1,6 +1,7 @@
 import React from 'react';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import Cedula from '../template/layout/abstract/Cedula/Cedula';
+import OtherIncomeReceipts from '../template/layout/abstract/OtherIncomeReceipts/OtherIncomeReceipts';
 import GeneralFund from '../template/layout/abstract/GeneralFund/GeneralFund';
 import RealPropertyTax from '../template/layout/abstract/RealPropertyTax/RealPropertyTax';
 import TrustFunds from '../template/layout/abstract/TrustFund/TrustFund';
@@ -37,6 +38,7 @@ function Routers() {
           <Route path="general-fund" element={<GeneralFund />} />
           <Route path="trust-fund" element={<TrustFunds />} />
           <Route path="community-tax-certificate" element={<Cedula />} />
+          <Route path="other-income-receipts" element={<OtherIncomeReceipts />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="dive-ticket" element={<DiveTicket />} />
           <Route path="cash-ticket" element={<CashTicket />} />

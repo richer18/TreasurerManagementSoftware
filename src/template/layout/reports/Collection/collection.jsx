@@ -14,7 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import axios from "axios";
-import PropTypes from "prop-types";
+
 import React, { useEffect, useMemo, useState } from "react";
 // import MDTypography from '../../../../../components/MDTypography';
 
@@ -44,7 +44,7 @@ const years = [
   { label: "2030", value: "2030" },
 ];
 
-const BASE_URL = "http://192.168.101.108:3001";
+const BASE_URL = "http://localhost:3001";
 
 // Helper function to format currency
 const formatCurrency = (value) => {
@@ -4557,8 +4557,6 @@ function Collection() {
   );
 }
 
-Collection.propTypes = {
-  onBack: PropTypes.func.isRequired,
-};
+
 
 export default Collection;

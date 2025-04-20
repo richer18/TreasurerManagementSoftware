@@ -52,7 +52,7 @@ function OtherTaxesDialogContent({ quarter, year }) {
           });
   
           const response = await fetch(
-            `http://192.168.101.108:3001/api/OtherTaxesBreakdown?${params}`
+            `http://localhost:3001/api/OtherTaxesBreakdown?${params}`
           );
           
           if (!response.ok) {
