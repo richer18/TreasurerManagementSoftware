@@ -154,44 +154,38 @@ useEffect(() => {
   }, [filteredData]);
 
   const handleSaveClick = async (rowIndex) => {
-    const controller = new AbortController(); // To allow request cancellation
+    const controller = new AbortController();
     const signal = controller.signal;
-  
+
     const row = filteredData[rowIndex];
-  
-    // Get ORIGINAL index from unfiltered data
-    const originalIndex = data.findIndex((item) => item.date === row.date);
-  
-    // Convert date properly
     const formattedDate = parseDate(row.date);
-  
-    // Get numeric value correctly
+
     const dueFromValue =
-      typeof updatedDueFrom[originalIndex] === "number"
-        ? updatedDueFrom[originalIndex]
+      typeof updatedDueFrom[row.date] === "number"
+        ? updatedDueFrom[row.date]
         : row.dueFrom;
-  
+
     const requestBody = {
       date: formattedDate,
       dueFrom: dueFromValue,
-      comment: comments[rowIndex] || "",
+      comment: comments[row.date] || "",
     };
-  
+
     console.log("📤 Sending Update:", requestBody);
-  
+
     try {
       const response = await fetch(`${BASE_URL}/api/update-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
-        signal, // Link fetch to AbortController
+        signal,
       });
-  
+
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Failed to update");
-  
+
       console.log("✅ Update Successful:", result.message);
-      
+
       setShowButtons(false);
       setEditableRow(null);
     } catch (error) {
@@ -201,14 +195,15 @@ useEffect(() => {
         console.error("❌ Error Updating:", error);
       }
     } finally {
-      controller.abort(); // Cleanup to avoid memory leaks
+      controller.abort();
     }
   };
 
-  const handleCommentChange = (rowIndex, value) => {
+
+  const handleCommentChange = (key, value) => {
     setComments((prev) => ({
       ...prev,
-      [rowIndex]: value,
+      [key]: value,
     }));
   };
 
@@ -469,243 +464,411 @@ const formatDateToYYYYMMDD = (dateString) => {
 
   return (
     <div style={{ padding: "24px", backgroundColor: "#f5f7fa" }}>
-    <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600, color: theme.palette.primary.dark }}>
-          Financial Report Summary
-        </Typography>
-        <Chip 
-          label={`${month ? months[month-1] : "All Months"} ${year || ""}`.trim()} 
-          color="primary" 
-          variant="outlined"
-          sx={{ fontSize: "0.875rem", fontWeight: 500 }}
-        />
-      </Box>
-  
-     {/* Filter and Actions Container */}
-<Box sx={{
-  display: 'flex',
-  flexDirection: { xs: 'column', sm: 'row' },
-  gap: 2,
-  alignItems: { xs: 'stretch', sm: 'center' },
-  mb: 4,
-  backgroundColor: 'background.paper',
-  p: 3,
-  borderRadius: 2,
-  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-}}>
-  {/* Filter Controls */}
-  <Box sx={{
-    display: 'flex',
-    flex: 1,
-    gap: 2,
-    flexDirection: { xs: 'column', sm: 'row' },
-    minWidth: { sm: '400px' }
-  }}>
-    {/* Month Selector */}
-    <TextField
-      select
-      fullWidth
-      label="Month"
-      value={month}
-      onChange={(e) => setMonth(e.target.value)}
-      variant="outlined"
-      size="small"
-      sx={{
-        minWidth: 120,
-        "& .MuiOutlinedInput-root": {
-          borderRadius: "6px",
-          backgroundColor: "background.default"
-        }
-      }}
-    >
-      <MenuItem value="">All Months</MenuItem>
-      {[
-        "January", "February", "March", "April", "May", "June", 
-        "July", "August", "September", "October", "November", "December"
-      ].map((m, index) => (
-        <MenuItem key={index} value={index + 1}>
-          {m}
-        </MenuItem>
-      ))}
-    </TextField>
+      <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}
+        >
+          <Typography
+            variant="h4"
+            sx={{ fontWeight: 600, color: theme.palette.primary.dark }}
+          >
+            Financial Report Summary
+          </Typography>
+          <Chip
+            label={`${month ? months[month - 1] : "All Months"} ${year || ""}`.trim()}
+            color="primary"
+            variant="outlined"
+            sx={{ fontSize: "0.875rem", fontWeight: 500 }}
+          />
+        </Box>
 
-    {/* Year Input */}
-    <TextField
-      fullWidth
-      label="Year"
-      type="number"
-      value={year}
-      onChange={(e) => setYear(e.target.value)}
-      variant="outlined"
-      size="small"
-      placeholder="e.g., 2025"
-      sx={{
-        minWidth: 120,
-        "& .MuiOutlinedInput-root": {
-          borderRadius: "6px",
-          backgroundColor: "background.default"
-        }
-      }}
-      InputProps={{
-        inputProps: { 
-          min: 2000, 
-          max: new Date().getFullYear() + 5 
-        }
-      }}
-    />
-  </Box>
-
-  {/* Action Buttons */}
-  <Box sx={{
-    display: 'flex',
-    gap: 2,
-    flexShrink: 0,
-    width: { xs: '100%', sm: 'auto' },
-    '& > *': {
-      flex: { xs: 1, sm: '0 0 auto' }
-    }
-  }}>
-     <Button
-      variant="contained"
-      color="primary"
-      startIcon={<DescriptionOutlined />}
-      onClick={handleGenerateReport}
-      sx={{
-        borderRadius: "6px",
-        textTransform: "none",
-        px: 3,
-        boxShadow: 'none',
-        '&:hover': {
-          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)'
-        }
-      }}
-    >
-      Generate Full Report
-    </Button>
-    <Button
-      variant="contained"
-      color="primary"
-      startIcon={<DescriptionOutlined />}
-      onClick={handleGenerateReport}
-      sx={{
-        borderRadius: "6px",
-        textTransform: "none",
-        px: 3,
-        boxShadow: 'none',
-        '&:hover': {
-          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)'
-        }
-      }}
-    >
-      Check Report
-    </Button>
-    
-    <Button
-      variant="outlined"
-      color="primary"
-      startIcon={<FileDownloadOutlined />}
-      onClick={handleExportCSV}
-      sx={{
-        borderRadius: "6px",
-        textTransform: "none",
-        px: 3,
-        borderWidth: '2px',
-        '&:hover': {
-          borderWidth: '2px'
-        }
-      }}
-    >
-      Export CSV
-    </Button>
-  </Box>
-</Box>
-  
-      <TableContainer
-        component={Paper}
-        sx={{
-          borderRadius: 3,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-          overflow: "hidden",
-          border: "1px solid #e0e0e0",
-          "& .MuiTableCell-root": {
-            py: 1.5,
-            fontSize: "0.875rem",
-          },
-        }}
-      >
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
+        {/* Filter and Actions Container */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: 2,
+            alignItems: { xs: "stretch", sm: "center" },
+            mb: 4,
+            backgroundColor: "background.paper",
+            p: 3,
+            borderRadius: 2,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          }}
+        >
+          {/* Filter Controls */}
+          <Box
+            sx={{
+              display: "flex",
+              flex: 1,
+              gap: 2,
+              flexDirection: { xs: "column", sm: "row" },
+              minWidth: { sm: "400px" },
+            }}
+          >
+            {/* Month Selector */}
+            <TextField
+              select
+              fullWidth
+              label="Month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              variant="outlined"
+              size="small"
+              sx={{
+                minWidth: 120,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "6px",
+                  backgroundColor: "background.default",
+                },
+              }}
+            >
+              <MenuItem value="">All Months</MenuItem>
               {[
-                "Date",
-                "CTC",
-                "RPT",
-                "GF and TF",
-                "Due From",
-                "RCD Total",
-                "Remarks",
-                "Action",
-              ].map((header) => (
-                <TableCell
-                  key={header}
-                  align="center"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: "0.9rem",
-                    backgroundColor: theme.palette.primary.main,
-                    color: theme.palette.common.white,
-                    borderRight: "1px solid rgba(255, 255, 255, 0.2)",
-                    "&:last-child": { borderRight: "none" },
-                    py: 1.8,
-                  }}
-                >
-                  {header}
-                </TableCell>
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+              ].map((m, index) => (
+                <MenuItem key={index} value={index + 1}>
+                  {m}
+                </MenuItem>
               ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredData.length > 0 ? (
-              filteredData.map((row, index) => (
-                <React.Fragment key={index}>
-                  <TableRow
+            </TextField>
+
+            {/* Year Input */}
+            <TextField
+              fullWidth
+              label="Year"
+              type="number"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              variant="outlined"
+              size="small"
+              placeholder="e.g., 2025"
+              sx={{
+                minWidth: 120,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "6px",
+                  backgroundColor: "background.default",
+                },
+              }}
+              InputProps={{
+                inputProps: {
+                  min: 2000,
+                  max: new Date().getFullYear() + 5,
+                },
+              }}
+            />
+          </Box>
+
+          {/* Action Buttons */}
+          <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              flexShrink: 0,
+              width: { xs: "100%", sm: "auto" },
+              "& > *": {
+                flex: { xs: 1, sm: "0 0 auto" },
+              },
+            }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<DescriptionOutlined />}
+              onClick={handleGenerateReport}
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                px: 3,
+                boxShadow: "none",
+                "&:hover": {
+                  boxShadow: "0 2px 8px rgba(25, 118, 210, 0.3)",
+                },
+              }}
+            >
+              Generate Full Report
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<DescriptionOutlined />}
+              onClick={handleGenerateReport}
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                px: 3,
+                boxShadow: "none",
+                "&:hover": {
+                  boxShadow: "0 2px 8px rgba(25, 118, 210, 0.3)",
+                },
+              }}
+            >
+              Check Report
+            </Button>
+
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<FileDownloadOutlined />}
+              onClick={handleExportCSV}
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                px: 3,
+                borderWidth: "2px",
+                "&:hover": {
+                  borderWidth: "2px",
+                },
+              }}
+            >
+              Export CSV
+            </Button>
+          </Box>
+        </Box>
+
+        <TableContainer
+          component={Paper}
+          sx={{
+            borderRadius: 3,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+            overflow: "hidden",
+            border: "1px solid #e0e0e0",
+            "& .MuiTableCell-root": {
+              py: 1.5,
+              fontSize: "0.875rem",
+            },
+          }}
+        >
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                {[
+                  "Date",
+                  "CTC",
+                  "RPT",
+                  "GF and TF",
+                  "Due From",
+                  "RCD Total",
+                  "Remarks",
+                  "Action",
+                ].map((header) => (
+                  <TableCell
+                    key={header}
+                    align="center"
                     sx={{
-                      backgroundColor: index % 2 === 0 ? "#fafafa" : "#ffffff",
-                      transition: "all 0.2s",
-                      "&:hover": { 
-                        backgroundColor: "#f0f4ff",
-                        transform: "translateY(-1px)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
-                      },
+                      fontWeight: 700,
+                      fontSize: "0.9rem",
+                      backgroundColor: theme.palette.primary.main,
+                      color: theme.palette.common.white,
+                      borderRight: "1px solid rgba(255, 255, 255, 0.2)",
+                      "&:last-child": { borderRight: "none" },
+                      py: 1.8,
                     }}
                   >
-                    {/* Date Cell */}
-                    <TableCell sx={{ 
-                      fontWeight: 500, 
-                      textAlign: "center",
-                      color: theme.palette.text.secondary
-                    }}>
-                      {new Intl.DateTimeFormat("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      }).format(new Date(row.date))}
-                    </TableCell>
-       
-                    {/* Editable Value Cells */}
-                    {["ctc", "rpt", "gfAndTf"].map((field) => (
-                      <TableCell key={field} sx={{ 
-                        textAlign: "center", 
-                        position: "relative",
-                        minWidth: 120
-                      }}>
-                        {editingField?.row === index && editingField?.field === field ? (
+                    {header}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredData.length > 0 ? (
+                filteredData.map((row, index) => (
+                  <React.Fragment key={index}>
+                    <TableRow
+                      sx={{
+                        backgroundColor:
+                          index % 2 === 0 ? "#fafafa" : "#ffffff",
+                        transition: "all 0.2s",
+                        "&:hover": {
+                          backgroundColor: "#f0f4ff",
+                          transform: "translateY(-1px)",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                        },
+                      }}
+                    >
+                      {/* Date Cell */}
+                      <TableCell
+                        sx={{
+                          fontWeight: 500,
+                          textAlign: "center",
+                          color: theme.palette.text.secondary,
+                        }}
+                      >
+                        {new Intl.DateTimeFormat("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }).format(new Date(row.date))}
+                      </TableCell>
+
+                      {/* Editable Value Cells */}
+                      {["ctc", "rpt", "gfAndTf"].map((field) => (
+                        <TableCell
+                          key={field}
+                          sx={{
+                            textAlign: "center",
+                            position: "relative",
+                            minWidth: 120,
+                          }}
+                        >
+                          {editingField?.row === index &&
+                          editingField?.field === field ? (
+                            <TextField
+                              value={inputValues[`${index}-${field}`] || ""}
+                              onChange={(e) =>
+                                handleInputChange(index, field, e.target.value)
+                              }
+                              size="small"
+                              type="number"
+                              sx={{
+                                width: 100,
+                                "& .MuiInputBase-input": {
+                                  fontWeight: 500,
+                                  textAlign: "center",
+                                  py: 0.5,
+                                },
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <span style={{ fontWeight: 600 }}>
+                                ₱{row[field].toLocaleString()}
+                              </span>
+
+                              {(row.adjustments?.[field]?.under > 0 ||
+                                row.adjustments?.[field]?.over > 0) && (
+                                <Tooltip
+                                  title={
+                                    <Box>
+                                      {row.adjustments[field].under > 0 && (
+                                        <Box
+                                          sx={{
+                                            color: theme.palette.error.main,
+                                          }}
+                                        >
+                                          Under: ₱
+                                          {row.adjustments[
+                                            field
+                                          ].under.toLocaleString()}
+                                        </Box>
+                                      )}
+                                      {row.adjustments[field].over > 0 && (
+                                        <Box
+                                          sx={{
+                                            color: theme.palette.success.main,
+                                          }}
+                                        >
+                                          Over: ₱
+                                          {row.adjustments[
+                                            field
+                                          ].over.toLocaleString()}
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  }
+                                >
+                                  <ErrorIcon
+                                    color="error"
+                                    sx={{
+                                      fontSize: 16,
+                                      ml: 0.5,
+                                      verticalAlign: "middle",
+                                    }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Box>
+                          )}
+
+                          {editableRow === index && showButtons && (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                gap: 1,
+                                justifyContent: "center",
+                                mt: 1,
+                                "& .MuiButton-root": {
+                                  borderRadius: "6px",
+                                  boxShadow: "none",
+                                },
+                              }}
+                            >
+                              <Button
+                                variant="contained"
+                                color="success"
+                                size="small"
+                                onClick={() => handleUnderClick(index, field)}
+                                sx={{
+                                  minWidth: 80,
+                                  textTransform: "none",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Under
+                              </Button>
+                              <Button
+                                variant="contained"
+                                color="error"
+                                size="small"
+                                onClick={() => handleOverClick(index, field)}
+                                sx={{
+                                  minWidth: 80,
+                                  textTransform: "none",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Over
+                              </Button>
+                            </Box>
+                          )}
+                        </TableCell>
+                      ))}
+
+                      {/* Due From Cell */}
+                      <TableCell sx={{ textAlign: "center" }}>
+                        {editableRow === index ? (
                           <TextField
-                            value={inputValues[`${index}-${field}`] || ""}
-                            onChange={(e) => handleInputChange(index, field, e.target.value)}
+                            value={
+                              !isNaN(updatedDueFrom[row.date])
+                                ? updatedDueFrom[row.date]
+                                : (row.dueFrom ?? "")
+                            }
+                            onChange={(e) => {
+                              const value = Number(e.target.value);
+                              console.log("Input changed:", value);
+                              setUpdatedDueFrom((prev) => ({
+                                ...prev,
+                                [row.date]: isNaN(value)
+                                  ? prev[row.date]
+                                  : value,
+                              }));
+                            }}
                             size="small"
-                            type="number"
                             sx={{
                               width: 100,
                               "& .MuiInputBase-input": {
@@ -714,409 +877,362 @@ const formatDateToYYYYMMDD = (dateString) => {
                                 py: 0.5,
                               },
                             }}
-                            autoFocus
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  ₱
+                                </InputAdornment>
+                              ),
+                            }}
                           />
                         ) : (
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <span style={{ fontWeight: 600 }}>
-                              ₱{row[field].toLocaleString()}
-                            </span>
-  
-                            {(row.adjustments?.[field]?.under > 0 || row.adjustments?.[field]?.over > 0) && (
-                              <Tooltip
-                                title={
-                                  <Box>
-                                    {row.adjustments[field].under > 0 && (
-                                      <Box sx={{ color: theme.palette.error.main }}>
-                                        Under: ₱{row.adjustments[field].under.toLocaleString()}
-                                      </Box>
-                                    )}
-                                    {row.adjustments[field].over > 0 && (
-                                      <Box sx={{ color: theme.palette.success.main }}>
-                                        Over: ₱{row.adjustments[field].over.toLocaleString()}
-                                      </Box>
-                                    )}
-                                  </Box>
-                                }
-                              >
-                                <ErrorIcon
-                                  color="error"
-                                  sx={{
-                                    fontSize: 16,
-                                    ml: 0.5,
-                                    verticalAlign: "middle",
-                                  }}
-                                />
-                              </Tooltip>
-                            )}
-                          </Box>
-                        )}
-  
-                        {editableRow === index && showButtons && (
-                          <Box sx={{ 
-                            display: "flex", 
-                            gap: 1, 
-                            justifyContent: "center", 
-                            mt: 1,
-                            "& .MuiButton-root": {
-                              borderRadius: "6px",
-                              boxShadow: "none"
-                            }
-                          }}>
-                            <Button
-                              variant="contained"
-                              color="success"
-                              size="small"
-                              onClick={() => handleUnderClick(index, field)}
-                              sx={{ 
-                                minWidth: 80, 
-                                textTransform: "none",
-                                fontSize: "0.75rem",
-                                fontWeight: 500
-                              }}
-                            >
-                              Under
-                            </Button>
-                            <Button
-                              variant="contained"
-                              color="error"
-                              size="small"
-                              onClick={() => handleOverClick(index, field)}
-                              sx={{ 
-                                minWidth: 80, 
-                                textTransform: "none",
-                                fontSize: "0.75rem",
-                                fontWeight: 500
-                              }}
-                            >
-                              Over
-                            </Button>
-                          </Box>
+                          <span style={{ fontWeight: 600 }}>
+                            ₱{row.dueFrom.toLocaleString()}
+                          </span>
                         )}
                       </TableCell>
-                    ))}
-  
-                    {/* Due From Cell */}
-                    <TableCell sx={{ textAlign: "center" }}>
-                      {editableRow === index ? (
+
+                      {/* RCD Total Cell */}
+                      <TableCell
+                        sx={{
+                          textAlign: "center",
+                          fontWeight: 600,
+                          color: theme.palette.success.dark,
+                        }}
+                      >
+                        ₱{row.rcdTotal.toLocaleString()}
+                      </TableCell>
+
+                      {/* Remarks Cell */}
+                      <TableCell>
                         <TextField
-                          value={updatedDueFrom[index] ?? row.dueFrom}
-                          onChange={(e) => {
-                            const value = Number(e.target.value);
-                            setUpdatedDueFrom((prev) => ({
-                              ...prev,
-                              [index]: isNaN(value) ? prev[index] : value,
-                            }));
-                          }}
+                          fullWidth
+                          value={comments[row.date] || ""}
+                          onChange={(e) =>
+                            handleCommentChange(row.date, e.target.value)
+                          }
                           size="small"
+                          placeholder="Add comment..."
                           sx={{
-                            width: 100,
+                            "& .MuiInputBase-root": {
+                              borderRadius: "6px",
+                            },
                             "& .MuiInputBase-input": {
-                              fontWeight: 500,
-                              textAlign: "center",
+                              fontSize: "0.875rem",
                               py: 0.5,
                             },
                           }}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">₱</InputAdornment>
-                            ),
-                          }}
                         />
-                      ) : (
-                        <span style={{ fontWeight: 600 }}>
-                          ₱{row.dueFrom.toLocaleString()}
-                        </span>
-                      )}
-                    </TableCell>
-  
-                    {/* RCD Total Cell */}
-                    <TableCell sx={{ 
-                      textAlign: "center", 
-                      fontWeight: 600,
-                      color: theme.palette.success.dark
-                    }}>
-                      ₱{row.rcdTotal.toLocaleString()}
-                    </TableCell>
-  
-                    {/* Remarks Cell */}
-                    <TableCell>
-                      <TextField
-                        fullWidth
-                        value={comments[index] || ""}
-                        onChange={(e) =>
-                          handleCommentChange(index, e.target.value)
-                        }
-                        size="small"
-                        placeholder="Add comment..."
-                        sx={{
-                          "& .MuiInputBase-root": {
-                            borderRadius: "6px",
-                          },
-                          "& .MuiInputBase-input": {
-                            fontSize: "0.875rem",
-                            py: 0.5,
-                          },
-                        }}
-                      />
-                    </TableCell>
-  
-                    {/* Action Cell */}
-                    <TableCell sx={{ textAlign: "center" }}>
-                      <IconButton
-                        color={editableRow === index ? "success" : "primary"}
-                        onClick={() =>
-                          editableRow === index
-                            ? handleSaveClick(index, updatedDueFrom)
-                            : handleEditClick(index)
-                        }
-                        sx={{ 
-                          "&:hover": { 
-                            backgroundColor: "rgba(25, 118, 210, 0.08)" 
-                          },
-                          transition: "all 0.2s",
-                          transform: editableRow === index ? "scale(1.1)" : "scale(1)"
-                        }}
-                      >
-                        {editableRow === index ? (
-                          <Save fontSize="small" />
-                        ) : (
-                          <Edit fontSize="small" />
-                        )}
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} sx={{ textAlign: "center", py: 6 }}>
-                  <Box sx={{ 
-                    display: "flex", 
-                    flexDirection: "column", 
-                    alignItems: "center",
-                    color: theme.palette.text.secondary
-                  }}>
-                    <InsertDriveFileOutlined  sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      No records found
-                    </Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                      Try adjusting your filters
-                    </Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
-  
-            {/* Totals Row */}
-            <TableRow sx={{ 
-              backgroundColor: theme.palette.success.light,
-              "& .MuiTableCell-root": {
-                fontWeight: 700,
-                fontSize: "0.9rem",
-                py: 2
-              }
-            }}>
-              <TableCell
-                colSpan={4}
-                sx={{ textAlign: "right", color: theme.palette.text.secondary }}
-              >
-                Grand Total
-              </TableCell>
-              <TableCell sx={{ 
-                textAlign: "center", 
-                color: theme.palette.error.dark
-              }}>
-                ₱{totalDueFrom.toLocaleString()}
-              </TableCell>
-              <TableCell sx={{ 
-                textAlign: "center", 
-                color: theme.palette.success.dark
-              }}>
-                ₱{totalRcd.toLocaleString()}
-              </TableCell>
-              <TableCell colSpan={2} />
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
-  
-      <Paper elevation={0} sx={{ 
-        mt: 4, 
-        p: 3, 
-        borderRadius: 2,
-        backgroundColor: "#f8fafc",
-        border: "1px solid #e0e6ed"
-      }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Box sx={{ 
-              backgroundColor: "#fff", 
-              p: 2, 
-              borderRadius: 2,
-              borderLeft: `4px solid ${theme.palette.primary.main}`
-            }}>
-              <Typography variant="subtitle2" sx={{ 
-                color: theme.palette.text.secondary,
-                mb: 1
-              }}>
-                TOTAL COLLECTIONS
-              </Typography>
-              <Box sx={{ 
-                display: "flex", 
-                alignItems: "center",
-                justifyContent: "space-between"
-              }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  RCD Total
-                </Typography>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 700,
-                  color: theme.palette.success.dark
-                }}>
-                  ₱{totalRcd.toLocaleString()}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Box sx={{ 
-              backgroundColor: "#fff", 
-              p: 2, 
-              borderRadius: 2,
-              borderLeft: `4px solid ${theme.palette.error.light}`
-            }}>
-              <Typography variant="subtitle2" sx={{ 
-                color: theme.palette.text.secondary,
-                mb: 1
-              }}>
-                DEDUCTIONS
-              </Typography>
-              <Box sx={{ 
-                display: "flex", 
-                alignItems: "center",
-                justifyContent: "space-between"
-              }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Due From
-                </Typography>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 700,
-                  color: theme.palette.error.dark
-                }}>
-                  ₱{totalDueFrom.toLocaleString()}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid item xs={12}>
-            <Box sx={{ 
-              backgroundColor: theme.palette.primary.light, 
-              p: 2.5, 
-              borderRadius: 2,
-              mt: 1
-            }}>
-              <Box sx={{ 
-                display: "flex", 
-                alignItems: "center",
-                justifyContent: "space-between"
-              }}>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 700,
-                  color: theme.palette.common.white
-                }}>
-                  Net Collections
-                </Typography>
-                <Typography variant="h5" sx={{ 
-                  fontWeight: 800,
-                  color: theme.palette.common.white
-                }}>
-                  ₱{totalCollections.toLocaleString()}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-  
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            width: "100%",
-            maxWidth: "400px"
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          fontWeight: 600,
-          backgroundColor: theme.palette.primary.main,
-          color: theme.palette.common.white,
-          py: 2
-        }}>
-          {isAdding ? "Add Adjustment" : "Subtract Adjustment"}
-        </DialogTitle>
-        <DialogContent sx={{ py: 3 }}>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            {isAdding ? "Enter amount to add to" : "Enter amount to subtract from"} <strong>{dialogField}</strong>
-          </Typography>
-          <TextField
-            autoFocus
-            margin="dense"
-            fullWidth
-            type="number"
-            variant="outlined"
-            value={dialogInputValue}
-            onChange={(e) => setDialogInputValue(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">₱</InputAdornment>
-              ),
-              sx: {
-                borderRadius: 2
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button 
-            onClick={() => setDialogOpen(false)}
-            variant="outlined"
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              px: 3
-            }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleDialogConfirm} 
-            color="primary"
-            variant="contained"
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              px: 3,
-              boxShadow: "none"
-            }}
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Paper>
+                      </TableCell>
 
-    <GenerateReport 
+                      {/* Action Cell */}
+                      <TableCell sx={{ textAlign: "center" }}>
+                        <IconButton
+                          color={editableRow === index ? "success" : "primary"}
+                          onClick={() =>
+                            editableRow === index
+                              ? handleSaveClick(index, updatedDueFrom)
+                              : handleEditClick(index)
+                          }
+                          sx={{
+                            "&:hover": {
+                              backgroundColor: "rgba(25, 118, 210, 0.08)",
+                            },
+                            transition: "all 0.2s",
+                            transform:
+                              editableRow === index ? "scale(1.1)" : "scale(1)",
+                          }}
+                        >
+                          {editableRow === index ? (
+                            <Save fontSize="small" />
+                          ) : (
+                            <Edit fontSize="small" />
+                          )}
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} sx={{ textAlign: "center", py: 6 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        color: theme.palette.text.secondary,
+                      }}
+                    >
+                      <InsertDriveFileOutlined
+                        sx={{ fontSize: 48, mb: 1, opacity: 0.5 }}
+                      />
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        No records found
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        Try adjusting your filters
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {/* Totals Row */}
+              <TableRow
+                sx={{
+                  backgroundColor: theme.palette.success.light,
+                  "& .MuiTableCell-root": {
+                    fontWeight: 700,
+                    fontSize: "0.9rem",
+                    py: 2,
+                  },
+                }}
+              >
+                <TableCell
+                  colSpan={4}
+                  sx={{
+                    textAlign: "right",
+                    color: theme.palette.text.secondary,
+                  }}
+                >
+                  Grand Total
+                </TableCell>
+                <TableCell
+                  sx={{
+                    textAlign: "center",
+                    color: theme.palette.error.dark,
+                  }}
+                >
+                  ₱{totalDueFrom.toLocaleString()}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    textAlign: "center",
+                    color: theme.palette.success.dark,
+                  }}
+                >
+                  ₱{totalRcd.toLocaleString()}
+                </TableCell>
+                <TableCell colSpan={2} />
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 4,
+            p: 3,
+            borderRadius: 2,
+            backgroundColor: "#f8fafc",
+            border: "1px solid #e0e6ed",
+          }}
+        >
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Box
+                sx={{
+                  backgroundColor: "#fff",
+                  p: 2,
+                  borderRadius: 2,
+                  borderLeft: `4px solid ${theme.palette.primary.main}`,
+                }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    color: theme.palette.text.secondary,
+                    mb: 1,
+                  }}
+                >
+                  TOTAL COLLECTIONS
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    RCD Total
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      color: theme.palette.success.dark,
+                    }}
+                  >
+                    ₱{totalRcd.toLocaleString()}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box
+                sx={{
+                  backgroundColor: "#fff",
+                  p: 2,
+                  borderRadius: 2,
+                  borderLeft: `4px solid ${theme.palette.error.light}`,
+                }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    color: theme.palette.text.secondary,
+                    mb: 1,
+                  }}
+                >
+                  DEDUCTIONS
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Due From
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      color: theme.palette.error.dark,
+                    }}
+                  >
+                    ₱{totalDueFrom.toLocaleString()}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <Box
+                sx={{
+                  backgroundColor: theme.palette.primary.light,
+                  p: 2.5,
+                  borderRadius: 2,
+                  mt: 1,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      color: theme.palette.common.white,
+                    }}
+                  >
+                    Net Collections
+                  </Typography>
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 800,
+                      color: theme.palette.common.white,
+                    }}
+                  >
+                    ₱{totalCollections.toLocaleString()}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Dialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              width: "100%",
+              maxWidth: "400px",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              fontWeight: 600,
+              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.common.white,
+              py: 2,
+            }}
+          >
+            {isAdding ? "Add Adjustment" : "Subtract Adjustment"}
+          </DialogTitle>
+          <DialogContent sx={{ py: 3 }}>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {isAdding
+                ? "Enter amount to add to"
+                : "Enter amount to subtract from"}{" "}
+              <strong>{dialogField}</strong>
+            </Typography>
+            <TextField
+              autoFocus
+              margin="dense"
+              fullWidth
+              type="number"
+              variant="outlined"
+              value={dialogInputValue}
+              onChange={(e) => setDialogInputValue(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">₱</InputAdornment>
+                ),
+                sx: {
+                  borderRadius: 2,
+                },
+              }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button
+              onClick={() => setDialogOpen(false)}
+              variant="outlined"
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                px: 3,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDialogConfirm}
+              color="primary"
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                px: 3,
+                boxShadow: "none",
+              }}
+            >
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Paper>
+
+      <GenerateReport
         open={reportDialog.open}
         onClose={handleCloseDialog}
         status={reportDialog.status}
         progress={reportDialog.progress}
       />
-  </div>
+    </div>
   );
 }
 

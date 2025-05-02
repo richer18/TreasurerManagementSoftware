@@ -33,9 +33,7 @@ import { BiSolidReport } from "react-icons/bi";
 import { IoMdAdd, IoMdDownload } from "react-icons/io";
 import { IoToday } from "react-icons/io5";
 import * as XLSX from "xlsx";
-import FloraMyImg from "../../../../assets/images/Flora_My.jpg";
-import RicardoImg from "../../../../assets/images/Ricardo_Enopia.jpg";
-import RowenaImg from "../../../../assets/images/Rowena_Gaer.jpg";
+
 import TrustFunds from "../../../../components/MD-Components/FillupForm/AbstractTF";
 import PopupDialog from "../../../../components/MD-Components/Popup/PopupDialogTF_FORM";
 import TrustFundDialog from "../../../../components/MD-Components/Popup/TrustFundDialog";
@@ -51,6 +49,11 @@ import TrustFundDialogPopupZF from "../../../../components/MD-Components/Popup/c
 import DailyTable from "./TableData/DailyTable";
 
 import GenerateReport from './TableData/GenerateReport';
+
+
+const FloraMyImg = "/assets/images/Flora_My.jpg";
+const RicardoImg = "/assets/images/Ricardo_Enopia.jpg";
+const RowenaImg = "/assets/images/Rowena_Gaer.jpg";
 
 // Custom styled table cell
 const StyledTableCell = styled(TableCell)(({ theme }) => ({

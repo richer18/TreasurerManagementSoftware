@@ -37,9 +37,7 @@ import * as XLSX from 'xlsx'; // npm install xlsx
 
 // ---- Adjust these imports to your actual file paths ----
 import axios from "axios";
-import FloraMyImg from '../../../../assets/images/Flora_My.jpg';
-import RicardoImg from '../../../../assets/images/Ricardo_Enopia.jpg';
-import RowenaImg from '../../../../assets/images/Rowena_Gaer.jpg';
+
 import AbstractGF from '../../../../components/MD-Components/FillupForm/AbstractGF';
 import GeneralFundDialogPopupDAILY from '../../../../components/MD-Components/Popup/components/GeneralFundPopup/GeneralFundDialogPopupDailyTable';
 import GeneralFundDialogPopupRFEE from '../../../../components/MD-Components/Popup/components/GeneralFundPopup/GeneralFundDialogPopupRFEE';
@@ -87,6 +85,9 @@ const formatDate = (dateString) => {
   const options = { month: 'short', day: 'numeric', year: 'numeric' };
   return date.toLocaleDateString('en-US', options);
 };
+const FloraMyImg = "/assets/images/Flora_My.jpg";
+const RicardoImg = "/assets/images/Ricardo_Enopia.jpg";
+const RowenaImg = "/assets/images/Rowena_Gaer.jpg";
 
 // Map of cashier names to image paths
 const cashierImages = {

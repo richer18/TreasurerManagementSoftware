@@ -1,5 +1,5 @@
+import { Alert, Box, CircularProgress, Divider, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Divider, CircularProgress, Alert } from '@mui/material';
 
 const CATEGORY_MAPPING = [
   { label: 'Current' },
@@ -63,7 +63,7 @@ function RealPropertyTaxBasicDialogContent({ quarter, year }) {
       _: Date.now(),
     });
 
-    const response = await fetch(`http://localhost:3001${url}?${params}`);
+    const response = await fetch(`http://192.168.101.108:3001${url}?${params}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch ${url}`);
     }

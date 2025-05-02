@@ -1,10 +1,10 @@
+import { Alert, Box, CircularProgress, Divider, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Divider, CircularProgress, Alert } from '@mui/material';
 
 const CATEGORY_MAPPING = [
-  { label: 'Current Year	', field: 'Distributor' },
-  { label: 'Previous Years	', field: 'Retailing' },
-  { label: 'Penalties', field: 'Financial' },
+  { label: 'Current' },
+  { label: 'Prior' },
+  { label: 'Penalties' },
 ];
 
 const convertQuarterToMonths = (quarter) => {
@@ -28,114 +28,143 @@ const formatCurrency = (value) => {
       }).format(number);
 };
 
-function RealPropertyTaxSEFDialogContent({ quarter, year }) {
-    const [breakdownData, setBreakdownData] = useState([]);
-      const [total, setTotal] = useState('₱ 0');
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState(null);
-    
-      useEffect(() => {
-        const fetchData = async () => {
-          try {
-            setLoading(true);
-            setError(null);
-            
-            const months = convertQuarterToMonths(quarter);
-            const params = new URLSearchParams({
-              year: year,
-              months: months.join(','),
-              _: Date.now(),
-            });
-    
-            const response = await fetch(`http://localhost:3001/api/TaxOnBusinessBreakdown?${params}`);
-            
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-    
-            const data = await response.json();
-    
-            const transformedData = CATEGORY_MAPPING.map(({ label, field }) => ({
-              label,
-              value: formatCurrency(data[field] || 0),
-            }));
-    
-            const calculatedTotal = transformedData.reduce(
-              (sum, item) => sum + Number(item.value.replace(/[^0-9.-]+/g, '')),
-              0
-            );
-    
-            setBreakdownData(transformedData);
-            setTotal(formatCurrency(calculatedTotal));
-          } catch (err) {
-            console.error('Fetch error:', err);
-            setError(err.message);
-          } finally {
-            setLoading(false);
-          }
-        };
-    
-        fetchData();
-      }, [quarter, year]);
-    
-      // Render loading state
-      if (loading) {
-        return (
-          <Box display="flex" justifyContent="center" p={4}>
-            <CircularProgress />
-          </Box>
-        );
+// Helper to transform API data into labeled breakdown
+const transform = (rows, keyName) => {
+  const lookup = {};
+  rows.forEach((row) => {
+    const category = row.category?.trim();
+    if (category) {
+      lookup[category] = row[keyName] || 0;
+    }
+  });
+
+  return CATEGORY_MAPPING.map(({ label }) => ({
+    label,
+    value: formatCurrency(lookup[label] || 0),
+  }));
+};
+
+// Calculate total value from formatted currency strings
+const calculateTotal = (dataArr) =>
+  dataArr.reduce((sum, item) => sum + Number(item.value.replace(/[^0-9.-]+/g, '')), 0);
+
+function RealPropertyTaxBasicDialogContent({ quarter, year }) {
+  const [landData, setLandData] = useState([]);
+  const [bldgData, setBldgData] = useState([]);
+  const [landTotal, setLandTotal] = useState('₱ 0.00');
+  const [bldgTotal, setBldgTotal] = useState('₱ 0.00');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchBreakdown = async (url, year, months) => {
+    const params = new URLSearchParams({
+      year,
+      month: months[0], // Use one month for filtering (backend expects one)
+      _: Date.now(),
+    });
+
+    const response = await fetch(`http://192.168.101.108:3001${url}?${params}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}`);
+    }
+
+    const data = await response.json();
+    console.log(`${url} API response:`, data); // Debug log
+    return data;
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const months = convertQuarterToMonths(quarter);
+
+        const [landResponse, bldgResponse] = await Promise.all([
+          fetchBreakdown('/api/sefLandSharingData', year, months),
+          fetchBreakdown('/api/sefBuildingSharingData', year, months),
+        ]);
+
+        const landMapped = transform(landResponse, 'LAND');
+        const bldgMapped = transform(bldgResponse, 'BUILDING');
+
+        setLandData(landMapped);
+        setBldgData(bldgMapped);
+        setLandTotal(formatCurrency(calculateTotal(landMapped)));
+        setBldgTotal(formatCurrency(calculateTotal(bldgMapped)));
+      } catch (err) {
+        console.error('Data fetch error:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    
-      // Render error state
-      if (error) {
-        return (
-          <Box p={2}>
-            <Alert severity="error">
-              Error loading data: {error}
-            </Alert>
-          </Box>
-        );
-      }
-    return (
-     <Box>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6" fontWeight="bold">
-          Real Property Tax-SEF/Land/BLDG Breakdown
-          </Typography>
-          <Typography variant="h6" color="text.secondary">
-            {year} Total
-          </Typography>
-        </Box>
-    
-        {breakdownData.map((item, index) => (
-          <Box
-            key={item.label}
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            py={1}
-            borderBottom={index !== breakdownData.length - 1 ? 1 : 0}
-            borderColor="divider"
-          >
-            <Typography variant="body2">{item.label}</Typography>
-            <Typography variant="body2" fontWeight={500}>
-              {item.value}
-            </Typography>
-          </Box>
-        ))}
-    
-        <Divider sx={{ my: 2 }} />
-        <Box display="flex" justifyContent="space-between">
-          <Typography variant="subtitle1" fontWeight="bold">
-            Overall Total
-          </Typography>
-          <Typography variant="subtitle1" fontWeight="bold">
-            {total}
-          </Typography>
-        </Box>
+    };
+
+    fetchData();
+  }, [quarter, year]);
+
+  const renderBreakdown = (title, data, total) => (
+    <Box mb={4}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6" fontWeight="bold">
+          {title}
+        </Typography>
+        <Typography variant="h6" color="text.secondary">
+          {year} Total
+        </Typography>
       </Box>
-    )
+
+      {data.map((item, index) => (
+        <Box
+          key={item.label}
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          py={1}
+          borderBottom={index !== data.length - 1 ? 1 : 0}
+          borderColor="divider"
+        >
+          <Typography variant="body2">{item.label}</Typography>
+          <Typography variant="body2" fontWeight={500}>
+            {item.value}
+          </Typography>
+        </Box>
+      ))}
+
+      <Divider sx={{ my: 2 }} />
+      <Box display="flex" justifyContent="space-between">
+        <Typography variant="subtitle1" fontWeight="bold">
+          Overall Total
+        </Typography>
+        <Typography variant="subtitle1" fontWeight="bold">
+          {total}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" p={4}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box p={2}>
+        <Alert severity="error">Error loading data: {error}</Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      {renderBreakdown('Real Property Tax-SEF/LAND Breakdown', landData, landTotal)}
+      {renderBreakdown('Real Property Tax-SEF/BLDG Breakdown', bldgData, bldgTotal)}
+    </Box>
+  );
 }
 
-export default RealPropertyTaxSEFDialogContent
+export default RealPropertyTaxBasicDialogContent;

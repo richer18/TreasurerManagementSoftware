@@ -44,7 +44,7 @@ const years = [
   { label: "2030", value: "2030" },
 ];
 
-const BASE_URL = "http://localhost:3001";
+const BASE_URL = "http://192.168.101.108:3001";
 
 // Helper function to format currency
 const formatCurrency = (value) => {
