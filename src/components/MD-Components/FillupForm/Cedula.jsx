@@ -16,7 +16,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 
 // Styled Components
@@ -170,13 +170,14 @@ const mapDataToForm = (data) => ({
       CTCNO: formData.receipt,
       CTCTYPE: "CTCI",
       OWNERNAME: formData.taxpayerName,
-      BASICTAXDUE: basicCommunityTax.toFixed(2),
-      SALTAXDUE: formData.taxToPay,
-      INTEREST: interest,
-      TOTALAMOUNTPAID: total,
+      BASICTAXDUE: parseFloat(basicCommunityTax), // convert to number
+      SALTAXDUE: parseFloat(formData.taxToPay),
+      INTEREST: parseFloat(interest),
+      TOTALAMOUNTPAID: parseFloat(total),
       USERID: formData.userid,
       CTCYEAR: now.getFullYear(),
     };
+    console.log("Data to save:", dataToSave);
   
     const baseUrl = "http://192.168.101.108:3001/api";
     const endpoint =
