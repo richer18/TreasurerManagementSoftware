@@ -202,7 +202,7 @@ const cashierOptionsByReport = {
   
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `report-${Date.now()}.csv`);
+    link.setAttribute('RealPropertyTax', `report-${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

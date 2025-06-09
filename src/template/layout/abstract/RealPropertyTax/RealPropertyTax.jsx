@@ -900,6 +900,20 @@ const handleSearchClick = () => {
           </Box>
 
           <Box display="flex" gap={2}>
+           <Tooltip title="Barangay Sharing Reports">
+              <AnimatedButton
+                variant="contained"
+                startIcon={<MdSummarize size={18} />}
+                sx={{
+                  px: 4,
+                  textTransform: "none",
+                  fontSize: 16,
+                }}
+                // onClick={toggleSummaryTable}
+              >
+                Barangay Shares
+              </AnimatedButton>
+            </Tooltip>
             <Tooltip title="Summary Reports">
               <AnimatedButton
                 variant="contained"

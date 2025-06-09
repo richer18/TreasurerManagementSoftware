@@ -156,7 +156,7 @@ const cashierOptionsByReport = {
     };
   
     try {
-      const response = await fetch('http://192.168.101.108:3001/api/generate-report', {
+      const response = await fetch('http://localhost:3001/api/generate-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

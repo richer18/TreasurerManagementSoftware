@@ -17,6 +17,9 @@ import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
 import MDTypography from '../../../../../components/MDTypography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ExcelJS from 'exceljs';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import PrintIcon from '@mui/icons-material/Print';
 
 const months = [
   { label: 'January', value: '1' },
@@ -46,6 +49,12 @@ const years = [
 
 const BASE_URL = "http://192.168.101.108:3001";
 
+// Helper function to format currency
+const formatCurrency = (value) => {
+  return value > 0
+    ? `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+    : '₱0.00'; // Changed to display '₱0.00' instead of empty string
+};
 function ReportTable({ onBack }) {
   const [month, setMonth] = useState({ label: 'January', value: '1' });
   const [year, setYear] = useState({ label: '2025', value: '2025' });
@@ -243,6 +252,314 @@ function ReportTable({ onBack }) {
     .reduce((sum, current) => sum + current, 0); // Sum up the values
 };
 
+// Inject print-specific styles
+React.useEffect(() => {
+  const style = document.createElement("style");
+  style.innerHTML = `
+    @media print {
+      @page {
+        size: 8.5in 13in portrait; /* Legal size, adjust to '8.5in 11in' for letter */
+        margin: 10mm; /* Increased margin for better readability */
+      }
+      body * {
+        visibility: hidden; /* Hide everything except the printable area */
+      }
+      #printableArea, #printableArea * {
+        visibility: visible;
+      }
+      #printableArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%; /* Use full width of the page */
+      }
+      table {
+        width: 100%; /* Ensure table spans the full width */
+        border-collapse: collapse;
+        font-family: Arial, sans-serif; /* Use a standard font */
+        font-size: 10px; /* Adjust font size for readability */
+      }
+      th, td {
+        border: 1px solid black;
+        padding: 6px; /* Slightly increase padding for better spacing */
+        text-align: center;
+      }
+      th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+        font-size: 11px; /* Slightly larger for headers */
+      }
+      h6, .subtitle {
+        font-size: 12px;
+        text-align: center;
+        font-weight: bold;
+        margin: 6px 0;
+        font-family: Arial, sans-serif;
+      }
+      tr {
+        page-break-inside: avoid; /* Prevent rows from splitting across pages */
+      }
+      /* Adjust column widths */
+      th:nth-child(1), td:nth-child(1) { width: 18%; }
+      th:nth-child(2), td:nth-child(2) { width: 14%; }
+      th:nth-child(3), td:nth-child(3) { width: 10%; }
+      th:nth-child(4), td:nth-child(4) { width: 9%; }
+      th:nth-child(5), td:nth-child(5) { width: 9%; }
+      th:nth-child(6), td:nth-child(6) { width: 9%; }
+      th:nth-child(7), td:nth-child(7) { width: 9%; }
+      th:nth-child(8), td:nth-child(8) { width: 9%; }
+      th:nth-child(9), td:nth-child(9) { width: 9%; }
+      th:nth-child(10), td:nth-child(10) { width: 9%; }
+      th:nth-child(11), td:nth-child(11) { width: 6%; }
+      th:nth-child(12), td:nth-child(12) { width: 6%; }
+    }
+  `;
+  document.head.appendChild(style);
+  return () => document.head.removeChild(style);
+}, []);
+
+const handlePrint = () => {
+  const originalTitle = document.title;
+  document.title = `SOC_GeneralFundReport_${month.label}_${year.label}`;
+  window.print();
+  document.title = originalTitle; // Restore original title
+};
+
+const handleDownloadExcel = () => {
+  // Create a new workbook
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Collections Summary');
+
+  // Add title and headers
+  worksheet.addRow(['SUMMARY OF COLLECTIONS', '', '', '', '', '', '', '', '', '', '']);
+  worksheet.addRow(['ZAMBOANGUITA, NEGROS ORIENTAL', '', '', '', '', '', '', '', '', '', '']);
+  worksheet.addRow(['LGU', '', '', '', '', '', '', '', '', '', '']);
+  worksheet.addRow(['Month of January 2025', '', '', '', '', '', '', '', '', '', '']);
+  worksheet.addRow([]); // Empty row for spacing
+
+  // Add column headers
+  worksheet.addRow([
+    'SOURCES OF COLLECTIONS',
+    'TOTAL COLLECTIONS',
+    'NATIONAL',
+    'PROVINCIAL',
+    '',
+    '',
+    'MUNICIPAL',
+    '',
+    '',
+    '',
+    'BARANGAY SHARE',
+    'FISHERIES'
+  ]);
+
+  worksheet.addRow([
+    '',
+    '',
+    '',
+    'GENERAL FUND',
+    'SPECIAL EDUC FUND',
+    'TOTAL',
+    'GENERAL FUND',
+    'SPECIAL EDUC FUND',
+    'TRUST FUND',
+    'TOTAL',
+    '',
+    ''
+  ]);
+
+  // Format currency with P prefix and proper formatting
+  const formatCurrency = (value) => {
+    if (value === undefined || value === null) return 'P0.00';
+    if (typeof value === 'string' && value.includes('/')) return `P${value}`; // Handle values like "9.40/0.00"
+    return `P${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+  };
+
+  // Add data rows from your data object
+  const addDataRow = (label, value, provincialValue = null) => {
+    const municipalValue = provincialValue ? value - provincialValue : value;
+    
+    worksheet.addRow([
+      label,
+      formatCurrency(value),
+      '', // National
+      provincialValue !== null ? formatCurrency(provincialValue) : '', // Provincial General Fund
+      '', // Provincial Special Educ Fund
+      '', // Provincial Total
+      provincialValue !== null ? formatCurrency(municipalValue) : formatCurrency(value), // Municipal General Fund
+      '', // Municipal Special Educ Fund
+      '', // Municipal Trust Fund
+      provincialValue !== null ? formatCurrency(municipalValue) : formatCurrency(value), //Total
+      '', // Barangay Share
+      ''  // Fisheries
+    ]);
+  };
+
+  // Add all data rows with proper formatting
+  addDataRow('Manufacturing', data.manufacturing);
+  addDataRow('Distributor', data.distributor);
+  addDataRow('Retailing', data.retailing);
+  addDataRow('Banks & Other Financial Int.', data.financial);
+  addDataRow('Other Business Tax', data.otherBusinessTax);
+  addDataRow('Sand & Gravel', data.sandGravel);
+  addDataRow('Fines & Penalties', data.finesPenalties);
+  addDataRow('Mayor\'s Permit', data.mayorsPermit);
+  addDataRow('Weights & Measures', data.weighsMeasure);
+  addDataRow('Tricycle Permit Fee', data.tricycleOperators);
+  addDataRow('Occupation Tax', data.occupationTax);
+  addDataRow('Cert. of Ownership', data.certOfOwnership);
+  addDataRow('Cert. of Transfer', data.certOfTransfer);
+  
+  // Special handling for Cockpit Share (split between provincial and municipal)
+  if (data.cockpitProvShare || data.cockpitLocalShare) {
+    const totalCockpit = (data.cockpitProvShare || 0) + (data.cockpitLocalShare || 0);
+    addDataRow('Cockpit Share', totalCockpit, data.cockpitProvShare);
+  } else {
+    addDataRow('Cockpit Share', 0);
+  }
+  
+  addDataRow('Docking and Mooring Fee', data.dockingMooringFee);
+  addDataRow('Sultadas', data.sultadas);
+  addDataRow('Miscellaneous', data.miscellaneousFee);
+  addDataRow('Registration of Birth', data.regOfBirth);
+  addDataRow('Marriage Fees', data.marriageFees);
+  addDataRow('Burial Fees', data.burialFees);
+  addDataRow('Correction of Entry', data.correctionOfEntry);
+  addDataRow('Fishing Permit Fee', data.fishingPermitFee);
+  addDataRow('Sale of Agri. Prod.', data.saleOfAgriProd);
+  addDataRow('Sale of Acc. Forms', data.saleOfAcctForm);
+  addDataRow('Water Fees', data.waterFees);
+  addDataRow('Market Stall Fee', data.stallFees);
+  addDataRow('Cash Tickets', data.cashTickets);
+  addDataRow('Slaughterhouse Fee', data.slaughterHouseFee);
+  addDataRow('Rent of Equipment', data.rentalOfEquipment);
+  addDataRow('Doc Stamp Tax', data.docStamp);
+  addDataRow('Police Clearance', data.policeReportClearance);
+  addDataRow('Secretariat Fees', data.secretaryfee);
+  addDataRow('Med./Lab. Fees', data.medDentLabFees);
+  addDataRow('Garbage Fees', data.garbageFees);
+  addDataRow('Cutting Tree', data.cuttingTree);
+
+  // Calculate totals
+  const allValues = [
+  data.manufacturing,
+  data.distributor,
+  data.retailing,
+  data.financial,
+  data.otherBusinessTax,
+  data.sandGravel,
+  data.finesPenalties,
+  data.mayorsPermit,
+  data.weighsMeasure,
+  data.tricycleOperators,
+  data.occupationTax,
+  data.certOfOwnership,
+  data.certOfTransfer,
+  (data.cockpitLocalShare || 0) + (data.cockpitProvShare || 0),
+  data.dockingMooringFee,
+  data.sultadas,
+  data.miscellaneousFee,
+  data.regOfBirth,
+  data.marriageFees,
+  data.burialFees,
+  data.correctionOfEntry,
+  data.fishingPermitFee,
+  data.saleOfAgriProd,
+  data.saleOfAcctForm,
+  data.waterFees,
+  data.stallFees,
+  data.cashTickets,
+  data.slaughterHouseFee,
+  data.rentalOfEquipment,
+  data.docStamp,
+  data.policeReportClearance,
+  data.secretaryfee,
+  data.medDentLabFees,
+  data.garbageFees,
+  data.cuttingTree
+].filter(v => v !== undefined && v !== null);
+
+  const total = allValues.reduce((sum, value) => sum + (typeof value === 'number' ? value : 0), 0);
+  const municipalTotal = total - (data.cockpitProvShare || 0);
+
+  // Add totals row
+  worksheet.addRow([
+    'TOTAL',
+    formatCurrency(total),
+    '', // National
+    formatCurrency(data.cockpitProvShare || 0), // Provincial General Fund
+    '', // Provincial Special Educ Fund
+    '', // Provincial Total
+    formatCurrency(municipalTotal), // Municipal General Fund
+    '', // Municipal Special Educ Fund
+    '', // Municipal Trust Fund
+    formatCurrency(municipalTotal), // Municipal Total
+    '', // Barangay Share
+    ''  // Fisheries
+  ]);
+
+  // Merge header cells
+  worksheet.mergeCells('A1:L1');
+  worksheet.mergeCells('A2:L2');
+  worksheet.mergeCells('A3:L3');
+  worksheet.mergeCells('A4:L4');
+  worksheet.mergeCells('D5:F6'); // Provincial
+  worksheet.mergeCells('G5:I6'); // Municipal
+
+  // Style headers
+  const headerStyles = {
+    font: { bold: true },
+    alignment: { horizontal: 'center' }
+  };
+
+  worksheet.getRow(1).font = { bold: true, size: 16 };
+  worksheet.getRow(2).font = { bold: true, size: 14 };
+  worksheet.getRow(5).eachCell(cell => Object.assign(cell, headerStyles));
+  worksheet.getRow(6).eachCell(cell => Object.assign(cell, headerStyles));
+  
+  // Style totals row (last row)
+  const lastRow = worksheet.lastRow;
+  lastRow.eachCell(cell => {
+    cell.font = { bold: true };
+    if ([2, 4, 6, 7].includes(cell.col)) { // Columns with currency values
+      cell.numFmt = '"P"#,##0.00';
+    }
+  });
+
+  // Set column widths
+  worksheet.columns = [
+    { width: 30 }, // SOURCES OF COLLECTIONS
+    { width: 15 }, // TOTAL COLLECTIONS
+    { width: 12 }, // NATIONAL
+    { width: 15 }, // PROVINCIAL GENERAL FUND
+    { width: 15 }, // PROVINCIAL SPECIAL EDUC FUND
+    { width: 12 }, // PROVINCIAL TOTAL
+    { width: 15 }, // MUNICIPAL GENERAL FUND
+    { width: 15 }, // MUNICIPAL SPECIAL EDUC FUND
+    { width: 12 }, // MUNICIPAL TRUST FUND
+    { width: 12 }, // MUNICIPAL TOTAL
+    { width: 15 }, // BARANGAY SHARE
+    { width: 12 }  // FISHERIES
+  ];
+
+  // Generate Excel file
+workbook.xlsx.writeBuffer().then(buffer => {
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  // Dynamic file name using selected month and year
+  const fileName = `Summary_of_Collections_${month.label}_${year.value}.xlsx`;
+
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+};
+
   return (
     <>
       <Box sx={{
@@ -301,7 +618,10 @@ function ReportTable({ onBack }) {
       />
     </Box>
   </Box>
-      <Box>
+
+  <div id="printableArea">
+    <Box>
+            <Box>
         <Grid container justifyContent="center" alignItems="center" spacing={0} direction="column" mb={2}>
           <Grid item>
             <MDTypography variant="h6" fontWeight="bold" align="center">
@@ -429,90 +749,90 @@ function ReportTable({ onBack }) {
   {/* Manufacturing */}
   <TableRow>
     <TableCell align="left" sx={{ border: '1px solid black' }}>Manufacturing</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.manufacturing}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.manufacturing || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.manufacturing}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.manufacturing || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.manufacturing}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.manufacturing || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
   {/* Distributor */}
   <TableRow>
     <TableCell align="left" sx={{ border: '1px solid black' }}>Distributor</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.distributor}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.distributor || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.distributor}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.distributor || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.distributor}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.distributor || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
   {/* Retailing */}
   <TableRow>
     <TableCell align="left" sx={{ border: '1px solid black' }}>Retailing</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.retailing}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.retailing || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.retailing}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.retailing || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.retailing}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.retailing || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
   {/*Banks & Other Financial Int. */}
   <TableRow>
     <TableCell align="left" sx={{ border: '1px solid black' }}>Banks & Other Financial Int.</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.financial}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.financial || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.financial}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.financial || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.financial}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.financial || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
   <TableRow>
     {/*Other Business Tax */}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Other Business Tax</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.otherBusinessTax}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.otherBusinessTax || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.otherBusinessTax}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.otherBusinessTax || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.otherBusinessTax}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.otherBusinessTax || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Sand & Gravel</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.sandGravel}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.sandGravel || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.sandGravel}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.sandGravel || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.sandGravel}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.sandGravel || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -520,15 +840,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Fines & Penalties</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.finesPenalties}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.finesPenalties || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.finesPenalties}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.finesPenalties || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.finesPenalties}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.finesPenalties || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -536,15 +856,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Mayor's Permit</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.mayorsPermit}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.mayorsPermit || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.mayorsPermit}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.mayorsPermit || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.mayorsPermit}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.mayorsPermit || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -552,15 +872,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Weight & Measure</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.weighsMeasure}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.weighsMeasure || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.weighsMeasure}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.weighsMeasure || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.weighsMeasure}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.weighsMeasure || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -568,15 +888,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Tricycle Permit Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.tricycleOperators}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.tricycleOperators || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.tricycleOperators}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.tricycleOperators || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.tricycleOperators}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.tricycleOperators || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -584,15 +904,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Occupation Tax</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.occupationTax}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.occupationTax || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.occupationTax}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.occupationTax || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.occupationTax}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.occupationTax || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -600,15 +920,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Cert. of Ownership</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.certOfOwnership}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.certOfOwnership || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.certOfOwnership}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.certOfOwnership || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.certOfOwnership}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.certOfOwnership || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -616,15 +936,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Cert. of Transfer</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.certOfTransfer}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.certOfTransfer || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.certOfTransfer}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.certOfTransfer  || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.certOfTransfer}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.certOfTransfer || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -632,16 +952,16 @@ function ReportTable({ onBack }) {
   <TableRow>
   <TableCell align="left" sx={{ border: '1px solid black' }}>Cockpit Share</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {(data.cockpitProvShare || 0) + (data.cockpitLocalShare || 0)} {/* TOTAL COLLECTIONS */}
+    {formatCurrency((data.cockpitProvShare || 0) + (data.cockpitLocalShare || 0))} {/* TOTAL COLLECTIONS */}
   </TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
-  <TableCell sx={{ border: '1px solid black' }} align="center">{data.cockpitProvShare}</TableCell> {/* PROVINCIAL GENERAL FUND */}
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cockpitProvShare || 0)}</TableCell> {/* PROVINCIAL GENERAL FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-  <TableCell sx={{ border: '1px solid black' }} align="center">{data.cockpitLocalShare}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cockpitLocalShare || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-  <TableCell sx={{ border: '1px solid black' }} align="center">{data.cockpitLocalShare}</TableCell> {/* MUNICIPAL TOTAL */}
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cockpitLocalShare || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
 </TableRow>
@@ -649,15 +969,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Docking and Mooring Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.dockingMooringFee}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.dockingMooringFee || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.dockingMooringFee}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.dockingMooringFee || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.dockingMooringFee}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.dockingMooringFee || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -665,15 +985,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Sultadas</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.sultadas}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.sultadas || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.sultadas}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.sultadas || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.sultadas}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.sultadas || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -681,15 +1001,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Miscellaneous</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.miscellaneousFee}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.miscellaneousFee || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.miscellaneousFee}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.miscellaneousFee || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.miscellaneousFee}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.miscellaneousFee || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -697,15 +1017,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Registration of Birth</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.regOfBirth}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.regOfBirth || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.regOfBirth}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.regOfBirth || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.regOfBirth}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.regOfBirth || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -713,15 +1033,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Marriage Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.marriageFees}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.marriageFees || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.marriageFees}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.marriageFees || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.marriageFees}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.marriageFees || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -729,15 +1049,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Burial Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.burialFees}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.burialFees || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.burialFees}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.burialFees || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.burialFees}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.burialFees || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -745,15 +1065,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Correction of Entry</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.correctionOfEntry}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.correctionOfEntry || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.correctionOfEntry}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.correctionOfEntry || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.correctionOfEntry}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.correctionOfEntry || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -761,12 +1081,12 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Fishing Permit Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.fishingPermitFee}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.fishingPermitFee || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.fishingPermitFee}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.fishingPermitFee || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center">{data.fishingPermitFee}</TableCell> {/* MUNICIPAL TOTAL */}
@@ -777,15 +1097,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Sale of Agri. Prod.</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.saleOfAgriProd}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.saleOfAgriProd || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.saleOfAgriProd}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.saleOfAgriProd || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.saleOfAgriProd}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.saleOfAgriProd || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -793,15 +1113,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Sale of Acct. Forms</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.saleOfAcctForm}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.saleOfAcctForm || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.saleOfAcctForm}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.saleOfAcctForm || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.saleOfAcctForm}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.saleOfAcctForm || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -809,15 +1129,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Water Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.waterFees}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.waterFees || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.waterFees}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.waterFees || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.waterFees}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.waterFees || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -825,15 +1145,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Market Stall Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.stallFees}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.stallFees || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.stallFees}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.stallFees || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.stallFees}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.stallFees || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -841,15 +1161,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Cash Tickets</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.cashTickets}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cashTickets || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.cashTickets}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cashTickets || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.cashTickets}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cashTickets || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -857,15 +1177,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>SlaughterHouse Fee</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.slaughterHouseFee}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.slaughterHouseFee || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.slaughterHouseFee}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.slaughterHouseFee || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.slaughterHouseFee}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.slaughterHouseFee || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -873,15 +1193,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Rental of Equipment</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.rentalOfEquipment}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.rentalOfEquipment || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.rentalOfEquipment}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.rentalOfEquipment || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.rentalOfEquipment}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.rentalOfEquipment || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -889,15 +1209,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Doc Stamp Tax</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.docStamp}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.docStamp || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.docStamp}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.docStamp || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.docStamp}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.docStamp || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -921,15 +1241,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Secretaries Fees</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center"> {(data.policeReportClearance || 0) +(data.secretaryfee || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center"> {formatCurrency((data.policeReportClearance || 0) +(data.secretaryfee || 0))}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{(data.policeReportClearance || 0) +(data.secretaryfee || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency((data.policeReportClearance || 0) +(data.secretaryfee || 0))}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{(data.policeReportClearance || 0) +(data.secretaryfee || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency((data.policeReportClearance || 0) +(data.secretaryfee || 0))}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -937,15 +1257,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Med./Lab. Fees</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.medDentLabFees}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.medDentLabFees || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.medDentLabFees}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.medDentLabFees || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.medDentLabFees}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.medDentLabFees || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -953,15 +1273,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Garbage Fees</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.garbageFees}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.garbageFees || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.garbageFees}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.garbageFees || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.garbageFees}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.garbageFees || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -969,15 +1289,15 @@ function ReportTable({ onBack }) {
   <TableRow>
     {/*Fines & Penalties*/}
     <TableCell align="left" sx={{ border: '1px solid black' }}>Cutting Tree</TableCell>
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.cuttingTree}</TableCell> {/* TOTAL COLLECTIONS */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cuttingTree || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.cuttingTree}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cuttingTree || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-    <TableCell sx={{ border: '1px solid black' }} align="center">{data.cuttingTree}</TableCell> {/* MUNICIPAL TOTAL */}
+    <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cuttingTree || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
     <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
   </TableRow>
@@ -986,7 +1306,7 @@ function ReportTable({ onBack }) {
 <TableRow>
   <TableCell align="left" sx={{ border: '1px solid black' }}>TOTAL</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {(data.manufacturing || 0) +
+    {formatCurrency((data.manufacturing || 0) +
       (data.distributor || 0) +
       (data.retailing || 0) +
       (data.financial || 0) +
@@ -1021,14 +1341,14 @@ function ReportTable({ onBack }) {
       (data.secretaryfee || 0) +
       (data.medDentLabFees || 0) +
       (data.garbageFees || 0) +
-      (data.cuttingTree || 0)}
+      (data.cuttingTree || 0))}
   </TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL NATIONAL */}
-  <TableCell sx={{ border: '1px solid black' }} align="center">{data.cockpitProvShare}</TableCell> {/* TOTAL PROVINCIAL GENERAL FUND */}
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.cockpitProvShare || 0)}</TableCell> {/* TOTAL PROVINCIAL GENERAL FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL PROVINCIAL SPECIAL EDUC. FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL PROVINCIAL TOTAL */}
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {calculateTotal([
+    {formatCurrency(calculateTotal([
       data.manufacturing,
       data.distributor,
       data.retailing,
@@ -1064,12 +1384,12 @@ function ReportTable({ onBack }) {
       data.medDentLabFees,
       data.garbageFees,
       data.cuttingTree,
-    ])}
+    ]))}
   </TableCell> {/* TOTAL MUNICIPAL GENERAL FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL MUNICIPAL SPECIAL EDUC. FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL MUNICIPAL TRUST FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {calculateTotal([
+    {formatCurrency(calculateTotal([
       data.manufacturing,
       data.distributor,
       data.retailing,
@@ -1105,7 +1425,7 @@ function ReportTable({ onBack }) {
       data.medDentLabFees,
       data.garbageFees,
       data.cuttingTree,
-    ])}
+    ]))}
   </TableCell> {/* TOTAL MUNICIPAL TOTAL */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL BARANGAY SHARE */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL FISHERIES */}
@@ -1114,7 +1434,64 @@ function ReportTable({ onBack }) {
 </TableBody>
   </Table>
 </TableContainer>
+</Box>
       </Box>
+      </div>
+       {/* Printable Area Ends Here */}
+
+
+            {/* Print Button */}
+             <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mt: 2,
+                mb: 4,
+                p: 3,
+                bgcolor: "background.paper",
+                borderRadius: 2,
+                boxShadow: 1,
+              }}
+            >
+              <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handlePrint}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    textTransform: "none",
+                    borderRadius: "12px",
+                    padding: "10px 20px",
+                    fontWeight: 600,
+                    "&:hover": { backgroundColor: "secondary.main" },
+                  }}
+                  startIcon={<PrintIcon />}
+                >
+                PRINT
+              </Button>
+              
+              <Button
+    variant="outlined"
+    color="success"
+    onClick={handleDownloadExcel}
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      gap: 1,
+      textTransform: "none",
+      borderRadius: "12px",
+      padding: "10px 20px",
+      fontWeight: 600,
+      "&:hover": { backgroundColor: "success.light" },
+    }}
+    startIcon={<FileDownloadIcon />}
+  >
+                Download to Excel
+              </Button>
+            </Box>
     </>
   );
 }

@@ -16,14 +16,10 @@ import {
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
-// import MDTypography from '../../../../../../components/MDTypography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PrintIcon from '@mui/icons-material/Print';
-// import { saveAs } from "file-saver";
-// import { jsPDF } from "jspdf";
-// import autoTable from 'jspdf-autotable';
-// import * as XLSX from "xlsx";
+import ExcelJS from 'exceljs';
 
   const months = [
     { label: 'January', value: '1' },
@@ -44,6 +40,13 @@ import PrintIcon from '@mui/icons-material/Print';
     label: String(2050 - i),
     value: 2050 - i,
 }));
+
+// Helper function to format currency
+const formatCurrency = (value) => {
+  return value > 0
+    ? `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+    : '₱0.00'; // Changed to display '₱0.00' instead of empty string
+};
 
 const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
 
@@ -135,155 +138,217 @@ const handleYearChange = (event, value) => {
 };
 
 
-// PDF Print Function
-// const handlePrintPDF = () => {
-//   const doc = new jsPDF("l", "mm", "a4");
+// Inject print-specific styles
+React.useEffect(() => {
+  const style = document.createElement("style");
+  style.innerHTML = `
+    @media print {
+      @page {
+        size: 8.5in 13in portrait; /* Legal size, adjust to '8.5in 11in' for letter */
+        margin: 10mm; /* Increased margin for better readability */
+      }
+      body * {
+        visibility: hidden; /* Hide everything except the printable area */
+      }
+      #printableArea, #printableArea * {
+        visibility: visible;
+      }
+      #printableArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%; /* Use full width of the page */
+      }
+      table {
+        width: 100%; /* Ensure table spans the full width */
+        border-collapse: collapse;
+        font-family: Arial, sans-serif; /* Use a standard font */
+        font-size: 10px; /* Adjust font size for readability */
+      }
+      th, td {
+        border: 1px solid black;
+        padding: 6px; /* Slightly increase padding for better spacing */
+        text-align: center;
+      }
+      th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+        font-size: 11px; /* Slightly larger for headers */
+      }
+      h6, .subtitle {
+        font-size: 12px;
+        text-align: center;
+        font-weight: bold;
+        margin: 6px 0;
+        font-family: Arial, sans-serif;
+      }
+      tr {
+        page-break-inside: avoid; /* Prevent rows from splitting across pages */
+      }
+      /* Adjust column widths */
+      th:nth-child(1), td:nth-child(1) { width: 18%; }
+      th:nth-child(2), td:nth-child(2) { width: 14%; }
+      th:nth-child(3), td:nth-child(3) { width: 10%; }
+      th:nth-child(4), td:nth-child(4) { width: 9%; }
+      th:nth-child(5), td:nth-child(5) { width: 9%; }
+      th:nth-child(6), td:nth-child(6) { width: 9%; }
+      th:nth-child(7), td:nth-child(7) { width: 9%; }
+      th:nth-child(8), td:nth-child(8) { width: 9%; }
+      th:nth-child(9), td:nth-child(9) { width: 9%; }
+      th:nth-child(10), td:nth-child(10) { width: 9%; }
+      th:nth-child(11), td:nth-child(11) { width: 6%; }
+      th:nth-child(12), td:nth-child(12) { width: 6%; }
+    }
+  `;
+  document.head.appendChild(style);
+  return () => document.head.removeChild(style);
+}, []);
 
-//   // Dynamic filename
-//   const now = new Date();
-//   const formattedDateTime = now
-//     .toISOString()
-//     .replace(/T/, "_")
-//     .replace(/\..+/, "")
-//     .replace(/:/g, "-");
-
-//   const fileName = `TrustFund_Summary_Report_${formattedDateTime}.pdf`;
-
-//   // Title Section (Centered Text)
-//   doc.setFont("helvetica", "bold");
-//   doc.setFontSize(14);
-//   doc.text("SUMMARY OF COLLECTIONS", 148.5, 15, { align: "center" });
-//   doc.setFontSize(12);
-//   doc.text("ZAMBOANGUITA, NEGROS ORIENTAL", 148.5, 25, { align: "center" });
-//   doc.setFont("helvetica", "normal");
-//   doc.text("LGU", 148.5, 32, { align: "center" });
-//   doc.setFontSize(10);
-//   doc.text(`Month of ${month?.label || "Unknown"} ${year?.label || "Year"}`, 148.5, 40, { align: "center" });
-
-//   // Table Headers
-//   const headers = [
-//     [
-//       { content: "SOURCES OF COLLECTIONS", rowSpan: 2 },
-//       { content: "TOTAL COLLECTIONS", rowSpan: 2 },
-//       { content: "NATIONAL", rowSpan: 2 },
-//       { content: "PROVINCIAL", colSpan: 3 },
-//       { content: "MUNICIPAL", colSpan: 4 },
-//       { content: "BARANGAY SHARE", rowSpan: 2 },
-//       { content: "FISHERIES", rowSpan: 2 },
-//     ],
-//     [
-//       "GENERAL FUND", "SPECIAL EDUC. FUND", "TOTAL",
-//       "GENERAL FUND", "SPECIAL EDUC. FUND", "TRUST FUND", "TOTAL",
-//     ],
-//   ];
-
-//   // Table Data
-//   const body = [
-//     ["Com Tax Cert.",formatToPeso(data.TOTALAMOUNTPAID),"", "", "", "",formatToPeso(data.TOTALAMOUNTPAID), "", "",formatToPeso(data.TOTALAMOUNTPAID), "","",],
-//     ["TOTAL",formatToPeso(data.TOTALAMOUNTPAID),"", "", "", "",formatToPeso(data.TOTALAMOUNTPAID), "", "",formatToPeso(data.TOTALAMOUNTPAID), "","",],
-//                ];
-
-//   // Calculate precise X position to center the table
-//   const pageWidth = doc.internal.pageSize.getWidth();
-//   const tableWidth = 260; // Adjust based on column widths
-//   const startX = (pageWidth - tableWidth) / 2; // Perfect Centering
-
-//   // Generate Table (Centered)
-//   autoTable(doc, {
-//     startY: 50,
-//     startX: startX, // Use the calculated position
-//     head: headers,
-//     body: body,
-//     theme: "grid",
-//     styles: {
-//       font: "helvetica",
-//       fontSize: 9,
-//       cellPadding: 3,
-//       halign: "center",
-//       valign: "middle",
-//       lineColor: [0, 0, 0],
-//       lineWidth: 0.3,
-//     },
-//     headStyles: {
-//       fillColor: [255, 255, 255],
-//       textColor: [0, 0, 0],
-//       fontStyle: "bold",
-//       lineWidth: 0.3,
-//     },
-//     columnStyles: {
-//       0: { halign: "left", cellWidth: "auto" },
-//     },
-//     didDrawPage: (data) => {
-//       doc.setFontSize(8);
-//       doc.text(
-//         `Generated on: ${new Date().toLocaleDateString()}`,
-//         10,
-//         doc.internal.pageSize.height - 10
-//       );
-//     },
-//   });
-
-  // Save PDF
-//   doc.save(fileName);
-// };
+const handlePrint = () => {
+  const originalTitle = document.title;
+  document.title = `SOC_TrustFundReport_${month.label}_${year.label}`;
+  window.print();
+  document.title = originalTitle; // Restore original title
+};
 
 
-  // 📊 Download to Excel Function
-// const handleDownloadExcel = async (month, year) => {
-//   const formatNumber = (num) => Number(num).toFixed(2);
+const handleDownloadExcel = async () => {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Summary of Collection Trust Fund');
 
-//   try {
-//     const response = await fetch("/CEDULA_TEMPLATE.xlsx");
-//     if (!response.ok) throw new Error("Failed to fetch the Excel template.");
+  // HEADER
+  worksheet.addRow(['SUMMARY OF COLLECTIONS']);
+  worksheet.addRow(['ZAMBOANGUITA, NEGROS ORIENTAL']);
+  worksheet.addRow(['LGU']);
+  worksheet.addRow(['Month of January 2025']);
+  worksheet.addRow([]);
 
-//     const arrayBuffer = await response.arrayBuffer();
-//     const workbook = XLSX.read(arrayBuffer, { type: "array" });
-//     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  // COLUMN HEADERS
+  worksheet.addRow([
+    'SOURCES OF COLLECTIONS', 'TOTAL COLLECTIONS', 'NATIONAL',
+    'PROVINCIAL', '', '',
+    'MUNICIPAL', '', '', '',
+    'BARANGAY SHARE', 'FISHERIES'
+  ]);
 
-//     const totalAmount = formatNumber(data?.TOTALAMOUNTPAID || 0);
+  worksheet.addRow([
+    '', '', '',
+    'GENERAL FUND', 'SPECIAL EDUC. FUND', 'TOTAL',
+    'GENERAL FUND', 'SPECIAL EDUC. FUND', 'TRUST FUND', 'TOTAL',
+    '', ''
+  ]);
 
-//     // ✅ Helper function to update cell while preserving styles
-//     const updateCell = (cellRef, value) => {
-//       worksheet[cellRef] = worksheet[cellRef] || {};
-//       worksheet[cellRef].v = value;
-//       worksheet[cellRef].s = {
-//         font: { bold: true, sz: 12 },
-//         alignment: { horizontal: "center", vertical: "center" },
-//       };
-//     };
+  // CURRENCY FORMATTER
+  const formatCurrency = val => `₱${Number(val || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
 
-//     // ✅ Update the red box (Row 3, spanning E3 to H3) with dynamic month and year
-//     updateCell("E3", `Month of ${month?.label || "Unknown"} ${year?.label || "Year"}`);
+  // DATA ROWS FROM DATABASE STATE
+  const rows = [
+    [
+      'Building Permit Fee',
+      formatCurrency(data.building_local_80 + data.building_trust_15 + data.building_national_5),
+      formatCurrency(data.building_national_5),
+      '', '', '',
+      formatCurrency(data.building_local_80),
+      '', formatCurrency(data.building_trust_15),
+      formatCurrency(data.building_local_80 + data.building_trust_15),
+      '', ''
+    ],
+    [
+      'Electrical Permit Fee',
+      formatCurrency(data.electricalfee),
+      '', '', '', '',
+      formatCurrency(data.electricalfee),
+      '', '', formatCurrency(data.electricalfee),
+      '', ''
+    ],
+    [
+      'Zoning Fee',
+      formatCurrency(data.zoningfee),
+      '', '', '', '',
+      formatCurrency(data.zoningfee),
+      '', '', formatCurrency(data.zoningfee),
+      '', ''
+    ],
+    [
+      'Livestock',
+      formatCurrency(data.livestock_local_80 + data.livestock_national_20),
+      formatCurrency(data.livestock_national_20),
+      '', '', '',
+      formatCurrency(data.livestock_local_80),
+      '', '', formatCurrency(data.livestock_local_80),
+      '', ''
+    ],
+    [
+      'Diving Fee',
+      formatCurrency(data.diving_local_40 + data.diving_brgy_30 + data.diving_fishers_30),
+      '', '', '', '',
+      formatCurrency(data.diving_local_40),
+      '', '', formatCurrency(data.diving_local_40),
+      formatCurrency(data.diving_brgy_30),
+      formatCurrency(data.diving_fishers_30)
+    ]
+  ];
 
-//     // Ensure valid merge range (E3 to H3)
-//     worksheet["!merges"] = worksheet["!merges"] || [];
-//     worksheet["!merges"].push({ s: { r: 2, c: 4 }, e: { r: 2, c: 7 } });
+  rows.forEach(row => worksheet.addRow(row));
 
-//     // ✅ Update other cells (example data)
-//     updateCell("A7", "Com Tax Cert.");
-//     updateCell("B7", totalAmount);
-//     updateCell("G7", totalAmount);
-//     updateCell("J7", totalAmount);
+  // TOTALS
+  const totalCollection = Object.values(data).reduce((sum, val) => sum + (val || 0), 0);
+  worksheet.addRow([
+    'TOTAL',
+    formatCurrency(totalCollection),
+    formatCurrency(data.building_national_5 + data.livestock_national_20),
+    '', '', '',
+    formatCurrency(data.building_local_80 + data.electricalfee + data.zoningfee + data.livestock_local_80 + data.diving_local_40),
+    '', formatCurrency(data.building_trust_15),
+    formatCurrency(data.building_local_80 + data.electricalfee + data.zoningfee + data.livestock_local_80 + data.diving_local_40 + data.building_trust_15),
+    formatCurrency(data.diving_brgy_30),
+    formatCurrency(data.diving_fishers_30)
+  ]);
 
-//     updateCell("A8", "TOTAL");
-//     updateCell("B8", totalAmount);
-//     updateCell("G8", totalAmount);
-//     updateCell("J8", totalAmount);
+  // MERGE HEADER CELLS
+  worksheet.mergeCells('A1:L1');
+  worksheet.mergeCells('A2:L2');
+  worksheet.mergeCells('A3:L3');
+  worksheet.mergeCells('A4:L4');
+  worksheet.mergeCells('D6:F6');
+  worksheet.mergeCells('G6:J6');
 
-//     // ✅ Dynamic filename
-//     const now = new Date();
-//     const formattedDateTime = now.toISOString().replace(/:/g, "-").replace("T", "_").split(".")[0];
-//     const fileName = `Summary_of_Collections_${formattedDateTime}.xlsx`;
+  // STYLING
+  for (let i = 1; i <= 4; i++) {
+    worksheet.getRow(i).font = { bold: true };
+    worksheet.getRow(i).alignment = { horizontal: 'center' };
+  }
 
-//     // ✅ Write and download the updated Excel
-//     const updatedExcel = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-//     saveAs(new Blob([updatedExcel], { type: "application/octet-stream" }), fileName);
+  worksheet.getRow(6).eachCell(cell => {
+    cell.font = { bold: true };
+    cell.alignment = { horizontal: 'center' };
+  });
 
-//     console.log("✅ Excel successfully generated with dynamic Month & Year!");
-//   } catch (error) {
-//     console.error("❌ Error handling Excel template: ", error);
-//   }
-// };
+  worksheet.getRow(7).eachCell(cell => {
+    cell.font = { bold: true };
+    cell.alignment = { horizontal: 'center' };
+  });
+
+  // COLUMN WIDTHS
+  worksheet.columns = Array(12).fill({ width: 18 });
+
+  // EXPORT FILE
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Summary_of_Collections_TrustFund_${month.label}_${year.label}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+
 
   return (
     <Box sx={{ p: 2, backgroundColor: '#f8f9fa'}}>
@@ -346,7 +411,10 @@ const handleYearChange = (event, value) => {
   </Box>
      
 
+<div id="printableArea">
+  <Box>
 
+ 
            <Box>
               {/* Title Section */}
   <Box textAlign="center" mb={4}>
@@ -482,12 +550,12 @@ const handleYearChange = (event, value) => {
 
   {/* TOTAL COLLECTIONS */}
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {((data.building_national_5 || 0) + (data.building_local_80 || 0) + (data.building_trust_15 || 0)).toFixed(2)}
+    {formatCurrency((data.building_national_5 || 0) + (data.building_local_80 || 0) + (data.building_trust_15 || 0))}
   </TableCell>
 
   {/* NATIONAL */}
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {(data.building_national_5 || 0).toFixed(2)}
+    {formatCurrency(data.building_national_5 || 0)}
   </TableCell>
 
   {/* PROVINCIAL GENERAL FUND */}
@@ -501,7 +569,7 @@ const handleYearChange = (event, value) => {
 
   {/* MUNICIPAL GENERAL FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {(data.building_local_80 || 0).toFixed(2)}
+    {formatCurrency(data.building_local_80 || 0)}
   </TableCell>
 
   {/* MUNICIPAL SPECIAL EDUC. FUND */}
@@ -509,12 +577,12 @@ const handleYearChange = (event, value) => {
 
   {/* MUNICIPAL TRUST FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {(data.building_trust_15 || 0).toFixed(2)}
+    {formatCurrency(data.building_trust_15 || 0)}
   </TableCell>
 
   {/* MUNICIPAL TOTAL */}
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {((data.building_local_80 || 0) + (data.building_trust_15 || 0)).toFixed(2)}
+    {formatCurrency((data.building_local_80 || 0) + (data.building_trust_15 || 0))}
   </TableCell>
 
   {/* BARANGAY SHARE */}
@@ -526,15 +594,15 @@ const handleYearChange = (event, value) => {
                     {/* Electrical Permit Fee */}
 <TableRow>
   <TableCell align="left" sx={{ border: '1px solid black' }}>Electrical Permit Fee</TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.electricalfee || 0).toFixed(2)}</TableCell> {/* TOTAL COLLECTIONS */}
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.electricalfee || 0)}</TableCell> {/* TOTAL COLLECTIONS */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* NATIONAL */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL GENERAL FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL SPECIAL EDUC. FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* PROVINCIAL TOTAL */}
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.electricalfee || 0).toFixed(2)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.electricalfee || 0)}</TableCell> {/* MUNICIPAL GENERAL FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL SPECIAL EDUC. FUND */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* MUNICIPAL TRUST FUND */}
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.electricalfee || 0).toFixed(2)}</TableCell> {/* MUNICIPAL TOTAL */}
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.electricalfee || 0)}</TableCell> {/* MUNICIPAL TOTAL */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* BARANGAY SHARE */}
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* FISHERIES */}
 </TableRow>
@@ -542,15 +610,15 @@ const handleYearChange = (event, value) => {
 {/* Zoning Fee */}
 <TableRow>
   <TableCell align="left" sx={{ border: '1px solid black' }}>Zoning Fee</TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.zoningfee || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.zoningfee || 0)}</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.zoningfee || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.zoningfee || 0)}</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.zoningfee || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.zoningfee || 0)}</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
 </TableRow>
@@ -558,15 +626,15 @@ const handleYearChange = (event, value) => {
 {/* Livestock */}
 <TableRow>
   <TableCell align="left" sx={{ border: '1px solid black' }}>Livestock</TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{((data.livestock_national_20 || 0) + (data.livestock_local_80 || 0)).toFixed(2)}</TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.livestock_national_20 || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency((data.livestock_national_20 || 0) + (data.livestock_local_80 || 0))}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.livestock_national_20 || 0)}</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.livestock_local_80 || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.livestock_local_80 || 0)}</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.livestock_local_80 || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.livestock_local_80 || 0)}</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
 </TableRow>
@@ -575,25 +643,25 @@ const handleYearChange = (event, value) => {
 <TableRow>
   <TableCell align="left" sx={{ border: '1px solid black' }}>Diving Fee</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {((data.diving_local_40 || 0) + (data.diving_brgy_30 || 0) + (data.diving_fishers_30 || 0)).toFixed(2)}
+    {formatCurrency((data.diving_local_40 || 0) + (data.diving_brgy_30 || 0) + (data.diving_fishers_30 || 0))}
   </TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.diving_local_40 || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.diving_local_40 || 0)}</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.diving_local_40 || 0).toFixed(2)}</TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.diving_brgy_30 || 0).toFixed(2)}</TableCell>
-  <TableCell sx={{ border: '1px solid black' }} align="center">{(data.diving_fishers_30 || 0).toFixed(2)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.diving_local_40 || 0)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.diving_brgy_30 || 0)}</TableCell>
+  <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.diving_fishers_30 || 0)}</TableCell>
 </TableRow>
 
 {/* OVERALL TOTAL */}
 <TableRow>
   <TableCell align="left" sx={{ border: '1px solid black' }}>TOTAL</TableCell>
   <TableCell sx={{ border: '1px solid black' }} align="center">
-    {((data.building_local_80 || 0) +
+    {formatCurrency((data.building_local_80 || 0) +
     (data.building_trust_15 || 0) +
     (data.building_national_5 || 0) +
     (data.electricalfee || 0) +
@@ -602,29 +670,30 @@ const handleYearChange = (event, value) => {
     (data.livestock_national_20 || 0) +
     (data.diving_local_40 || 0) +
     (data.diving_brgy_30 || 0) +
-    (data.diving_fishers_30 || 0)).toFixed(2)}
+    (data.diving_fishers_30 || 0))}
     </TableCell> {/* TOTAL COLLECTIONS */}
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{((data.building_national_5|| 0)+(data.livestock_national_20|| 0)).toFixed(2)}</TableCell> {/* TOTAL NATIONAL */}
+                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency((data.building_national_5|| 0)+(data.livestock_national_20|| 0))}</TableCell> {/* TOTAL NATIONAL */}
                         <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL PROVINCIAL GENERAL FUND */}
                         <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL PROVINCIAL SPECIAL EDUC. FUND */}
                         <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL PROVINCIAL TOTAL */}
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{((data.building_local_80|| 0)+(data.electricalfee|| 0)+
-                        (data.zoningfee|| 0)+(data.livestock_local_80|| 0)+(data.diving_local_40|| 0)).toFixed(2)}</TableCell> {/* TOTAL MUNICIPAL GENERAL FUND */}
+                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency((data.building_local_80|| 0)+(data.electricalfee|| 0)+
+                        (data.zoningfee|| 0)+(data.livestock_local_80|| 0)+(data.diving_local_40|| 0))}</TableCell> {/* TOTAL MUNICIPAL GENERAL FUND */}
                         <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell> {/* TOTAL MUNICIPAL SPECIAL EDUC. FUND */}
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{(data.building_trust_15 || 0).toFixed(2)}</TableCell> {/* TOTAL MUNICIPAL TRUST FUND */}
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{((data.building_local_80 || 0) +(data.building_trust_15 || 0) +(data.electricalfee || 0) +(data.zoningfee || 0) +(data.livestock_local_80 || 0) +(data.diving_local_40 || 0)).toFixed(2)}
+                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.building_trust_15 || 0)}</TableCell> {/* TOTAL MUNICIPAL TRUST FUND */}
+                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency((data.building_local_80 || 0) +(data.building_trust_15 || 0) +(data.electricalfee || 0) +(data.zoningfee || 0) +(data.livestock_local_80 || 0) +(data.diving_local_40 || 0))}
                         </TableCell> {/* TOTAL MUNICIPAL TOTAL */}
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{(data.diving_brgy_30 || 0).toFixed(2)}</TableCell> {/* TOTAL BARANGAY SHARE */}
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{(data.diving_fishers_30).toFixed(2)}</TableCell> {/* TOTAL FISHERIES */}
+                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.diving_brgy_30 || 0)}</TableCell> {/* TOTAL BARANGAY SHARE */}
+                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatCurrency(data.diving_fishers_30)}</TableCell> {/* TOTAL FISHERIES */}
                       </TableRow>
 
 
                       </TableBody>
               </Table>
               </TableContainer>
-
-
      </Box>
+      </Box>
+</div>
+
      <Box
   sx={{
     display: "flex",
@@ -642,7 +711,7 @@ const handleYearChange = (event, value) => {
   <Button
     variant="contained"
     color="primary"
-    // onClick={handlePrintPDF}
+    onClick={handlePrint}
     sx={{
       display: "flex",
       alignItems: "center",
@@ -662,7 +731,7 @@ const handleYearChange = (event, value) => {
   <Button
     variant="outlined"
     color="success"
-    // onClick={() => handleDownloadExcel(month, year)}
+    onClick={handleDownloadExcel}
     sx={{
       display: "flex",
       alignItems: "center",

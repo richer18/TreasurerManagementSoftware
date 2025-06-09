@@ -242,89 +242,161 @@ React.useEffect(() => {
   };
 
   const generateHeaders = () => {
-    return [
-      ['SOURCES OF COLLECTIONS', 'TOTAL COLLECTIONS', 'NATIONAL', 'PROVINCIAL', '', '', 'MUNICIPAL', '', '', '', 'BARANGAY SHARE', 'FISHERIES'],
-      ['', '', '', 'GENERAL FUND', 'SPECIAL EDUC. FUND', 'TOTAL', 'GENERAL FUND', 'SPECIAL EDUC. FUND', 'TRUST FUND', 'TOTAL', '', '']
-    ];
+  return [
+    [
+      'SOURCES OF COLLECTIONS',
+      'TOTAL COLLECTIONS',
+      'NATIONAL',
+      'PROVINCIAL', '', '',
+      'MUNICIPAL', '', '', '',
+      'BARANGAY SHARE',
+      'FISHERIES'
+    ],
+    [
+      '',
+      '',
+      '',
+      'GENERAL FUND',
+      'SPECIAL EDUC. FUND',
+      'TOTAL',
+      'GENERAL FUND',
+      'SPECIAL EDUC. FUND',
+      'TRUST FUND',
+      'TOTAL',
+      '',
+      ''
+    ]
+  ];
+};
+
+const readableCategories = {
+  LandSharingData: 'Real Property Tax - Basic/Land',
+  sefLandSharingData: 'Real Property Tax - SEF/Land',
+  buildingSharingData: 'Real Property Tax - Basic/Bldg.',
+  sefBuildingSharingData: 'Real Property Tax - SEF/Bldg.'
+};
+
+const handleDownloadExcel = () => {
+  const headers = generateHeaders();
+  const dataToExport = [];
+
+  // Total accumulators
+  let totals = {
+    totalCollections: 0,
+    national: 0,
+    prov35: 0,
+    prov50: 0,
+    mun40: 0,
+    mun50: 0,
+    trust: 0,
+    brgy: 0,
+    fisheries: 0
   };
 
-  const handleDownloadExcel = () => {
-    const headers = generateHeaders(); // Dynamically generate headers
-  
-    const dataToExport = [];
-  
-    Object.keys(sharingData).forEach((key) => {
-      const categoryData = sharingData[key];
-      dataToExport.push([key.replace(/([A-Z])/g, ' $1').trim()]); // Add category name
-      Object.keys(categoryData).forEach((subKey) => {
-        const rowData = categoryData[subKey];
-        dataToExport.push([
-          subKey,
-          formatCurrency(rowData['Total Collections'] || 0),
-          formatCurrency(rowData['National'] || 0),
-          formatCurrency(rowData['35% Prov’l Share'] || 0),
-          formatCurrency(rowData['Provincial Special Ed Fund'] || 0),
-          formatCurrency(
-            (rowData['35% Prov’l Share'] || 0) + (rowData['Provincial Special Ed Fund'] || 0)
-          ),
-          formatCurrency(rowData['40% Mun. Share'] || 0),
-          formatCurrency(rowData['Municipal Special Ed Fund'] || 0),
-          formatCurrency(rowData['Municipal Trust Fund'] || 0),
-          formatCurrency(
-            (rowData['40% Mun. Share'] || 0) +
-            (rowData['Municipal Special Ed Fund'] || 0) +
-            (rowData['Municipal Trust Fund'] || 0)
-          ),
-          formatCurrency(rowData['25% Brgy. Share'] || 0),
-          formatCurrency(rowData['Fisheries'] || 0),
-        ]);
-      });
+  Object.keys(sharingData).forEach((key) => {
+    const categoryData = sharingData[key];
+    const hasData = Object.values(categoryData).some((row) =>
+      Object.values(row).some((value) => value !== 0 && value !== '' && value !== null)
+    );
+
+    if (!hasData) return; // skip empty category
+
+    const categoryLabel = readableCategories[key] || key;
+    dataToExport.push([categoryLabel]); // category row
+
+    Object.keys(categoryData).forEach((subKey) => {
+      if (subKey === 'TOTAL') return;
+
+      const rowData = categoryData[subKey];
+      let totalCollections = 0;
+
+      // Calculate totalCollections by category type
+      if (key === 'LandSharingData' || key === 'buildingSharingData') {
+        totalCollections =
+          (rowData['35% Prov’l Share'] || 0) +
+          (rowData['40% Mun. Share'] || 0) +
+          (rowData['25% Brgy. Share'] || 0);
+      } else if (key === 'sefLandSharingData' || key === 'sefBuildingSharingData') {
+        totalCollections =
+          (rowData['50% Prov’l Share'] || 0) +
+          (rowData['50% Mun. Share'] || 0);
+      }
+
+      // Accumulate totals
+      totals.totalCollections += totalCollections;
+      totals.national += (rowData['National'] || 0);
+      totals.prov35 += (rowData['35% Prov’l Share'] || 0);
+      totals.prov50 += (rowData['50% Prov’l Share'] || 0);
+      totals.mun40 += (rowData['40% Mun. Share'] || 0);
+      totals.mun50 += (rowData['50% Mun. Share'] || 0);
+      totals.trust += (rowData['Municipal Trust Fund'] || 0);
+      totals.brgy += (rowData['25% Brgy. Share'] || 0);
+      totals.fisheries += (rowData['Fisheries'] || 0);
+
+      dataToExport.push([
+        subKey === 'Current' ? 'Current Year' : subKey === 'Prior' ? 'Previous Years' : 'Penalties',
+        formatCurrency(totalCollections),
+        formatCurrency(rowData['National'] || 0),
+        formatCurrency(rowData['35% Prov’l Share'] || 0),
+        formatCurrency(rowData['50% Prov’l Share'] || 0),
+        formatCurrency((rowData['35% Prov’l Share'] || 0) + (rowData['50% Prov’l Share'] || 0)),
+        formatCurrency(rowData['40% Mun. Share'] || 0),
+        formatCurrency(rowData['50% Mun. Share'] || 0),
+        formatCurrency(rowData['Municipal Trust Fund'] || 0),
+        formatCurrency(
+          (rowData['40% Mun. Share'] || 0) +
+          (rowData['50% Mun. Share'] || 0) +
+          (rowData['Municipal Trust Fund'] || 0)
+        ),
+        formatCurrency(rowData['25% Brgy. Share'] || 0),
+        formatCurrency(rowData['Fisheries'] || 0),
+      ]);
     });
-  
-    const worksheet = XLSX.utils.aoa_to_sheet([...headers, ...dataToExport]);
-  
-    worksheet['!merges'] = [
-      { s: { r: 0, c: 3 }, e: { r: 0, c: 5 } },
-      { s: { r: 0, c: 6 }, e: { r: 0, c: 9 } },
-    ];
-  
-    worksheet['!cols'] = headers[0].map(() => ({ wpx: 150 }));
-  
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
-    XLSX.writeFile(workbook, `Report_${month.label}_${year.label}.xlsx`);
-  };
+  });
+
+  // Add final TOTAL row
+  dataToExport.push([
+    'TOTAL',
+    formatCurrency(totals.totalCollections),
+    formatCurrency(totals.national),
+    formatCurrency(totals.prov35),
+    formatCurrency(totals.prov50),
+    formatCurrency(totals.prov35 + totals.prov50),
+    formatCurrency(totals.mun40),
+    formatCurrency(totals.mun50),
+    formatCurrency(totals.trust),
+    formatCurrency(totals.mun40 + totals.mun50 + totals.trust),
+    formatCurrency(totals.brgy),
+    formatCurrency(totals.fisheries)
+  ]);
+
+  // Generate worksheet
+  const worksheet = XLSX.utils.aoa_to_sheet([...headers, ...dataToExport]);
+
+  // Merge headers
+  worksheet['!merges'] = [
+    { s: { r: 0, c: 2 }, e: { r: 0, c: 2 } }, // NATIONAL
+    { s: { r: 0, c: 3 }, e: { r: 0, c: 5 } }, // PROVINCIAL
+    { s: { r: 0, c: 6 }, e: { r: 0, c: 9 } }, // MUNICIPAL
+    { s: { r: 0, c: 10 }, e: { r: 0, c: 10 } }, // BARANGAY SHARE
+    { s: { r: 0, c: 11 }, e: { r: 0, c: 11 } }, // FISHERIES
+  ];
+
+  // Freeze top 2 rows
+  worksheet['!freeze'] = { xSplit: 0, ySplit: 2 };
+
+  // Set column widths
+  worksheet['!cols'] = headers[0].map(() => ({ wpx: 160 }));
+
+  // Create and save workbook
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+  XLSX.writeFile(workbook, `SOCRPT_${month.label}_${year.label}.xlsx`);
+};
 
 
   return (
     <>
-      {/* <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Box>
-          <Button sx={{ display: 'flex', alignItems: 'center', p: 2 }} onClick={onBack}>
-            Back
-          </Button>
-        </Box>
-        <Box display="flex" justifyContent="flex-start" alignItems="center">
-          <Autocomplete
-            disablePortal
-            id="month-selector"
-            options={months}
-            sx={{ width: 150, mr: 2 }}
-            onChange={handleMonthChange}
-            value={month}
-            renderInput={(params) => <TextField {...params} label="Month" />}
-          />
-          <Autocomplete
-            disablePortal
-            id="year-selector"
-            options={years}
-            sx={{ width: 150 }}
-            onChange={handleYearChange}
-            value={year}
-            renderInput={(params) => <TextField {...params} label="Year" />}
-          />
-        </Box>
-      </Box> */}
 <Box sx={{
         display: 'flex',
         justifyContent: 'space-between',
