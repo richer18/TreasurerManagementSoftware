@@ -20,8 +20,6 @@ import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
 
 import { saveAs } from "file-saver";
-import { jsPDF } from "jspdf";
-import autoTable from 'jspdf-autotable';
 import * as XLSX from "xlsx";
 
 
@@ -93,107 +91,77 @@ useEffect(() => {
 
 
  // PDF Print Function
-const handlePrintPDF = () => {
-  const doc = new jsPDF("l", "mm", "a4");
+// Inject print-specific styles
+React.useEffect(() => {
+  const style = document.createElement("style");
+  style.innerHTML = `
+    @media print {
+      @page {
+        size: 8.5in 13in portrait; /* Legal size, adjust to '8.5in 11in' for letter */
+        margin: 10mm; /* Increased margin for better readability */
+      }
+      body * {
+        visibility: hidden; /* Hide everything except the printable area */
+      }
+      #printableArea, #printableArea * {
+        visibility: visible;
+      }
+      #printableArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%; /* Use full width of the page */
+      }
+      table {
+        width: 100%; /* Ensure table spans the full width */
+        border-collapse: collapse;
+        font-family: Arial, sans-serif; /* Use a standard font */
+        font-size: 10px; /* Adjust font size for readability */
+      }
+      th, td {
+        border: 1px solid black;
+        padding: 6px; /* Slightly increase padding for better spacing */
+        text-align: center;
+      }
+      th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+        font-size: 11px; /* Slightly larger for headers */
+      }
+      h6, .subtitle {
+        font-size: 12px;
+        text-align: center;
+        font-weight: bold;
+        margin: 6px 0;
+        font-family: Arial, sans-serif;
+      }
+      tr {
+        page-break-inside: avoid; /* Prevent rows from splitting across pages */
+      }
+      /* Adjust column widths */
+      th:nth-child(1), td:nth-child(1) { width: 18%; }
+      th:nth-child(2), td:nth-child(2) { width: 14%; }
+      th:nth-child(3), td:nth-child(3) { width: 10%; }
+      th:nth-child(4), td:nth-child(4) { width: 9%; }
+      th:nth-child(5), td:nth-child(5) { width: 9%; }
+      th:nth-child(6), td:nth-child(6) { width: 9%; }
+      th:nth-child(7), td:nth-child(7) { width: 9%; }
+      th:nth-child(8), td:nth-child(8) { width: 9%; }
+      th:nth-child(9), td:nth-child(9) { width: 9%; }
+      th:nth-child(10), td:nth-child(10) { width: 9%; }
+      th:nth-child(11), td:nth-child(11) { width: 6%; }
+      th:nth-child(12), td:nth-child(12) { width: 6%; }
+    }
+  `;
+  document.head.appendChild(style);
+  return () => document.head.removeChild(style);
+}, []);
 
-  // Dynamic filename
-  const now = new Date();
-  const formattedDateTime = now
-    .toISOString()
-    .replace(/T/, "_")
-    .replace(/\..+/, "")
-    .replace(/:/g, "-");
-
-  const fileName = `Cedula_Summary_Report_${formattedDateTime}.pdf`;
-
-  // Title Section (Centered Text)
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text("SUMMARY OF COLLECTIONS", 148.5, 15, { align: "center" });
-  doc.setFontSize(12);
-  doc.text("ZAMBOANGUITA, NEGROS ORIENTAL", 148.5, 25, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  doc.text("LGU", 148.5, 32, { align: "center" });
-  doc.setFontSize(10);
-  doc.text(`Month of ${month?.label || "Unknown"} ${year?.label || "Year"}`, 148.5, 40, { align: "center" });
-
-  // Table Headers
-  const headers = [
-    [
-      { content: "SOURCES OF COLLECTIONS", rowSpan: 2 },
-      { content: "TOTAL COLLECTIONS", rowSpan: 2 },
-      { content: "NATIONAL", rowSpan: 2 },
-      { content: "PROVINCIAL", colSpan: 3 },
-      { content: "MUNICIPAL", colSpan: 4 },
-      { content: "BARANGAY SHARE", rowSpan: 2 },
-      { content: "FISHERIES", rowSpan: 2 },
-    ],
-    [
-      "GENERAL FUND", "SPECIAL EDUC. FUND", "TOTAL",
-      "GENERAL FUND", "SPECIAL EDUC. FUND", "TRUST FUND", "TOTAL",
-    ],
-  ];
-
-  // Table Data
-  const body = [
-    [
-      "Com Tax Cert.",
-      formatToPeso(data.TOTALAMOUNTPAID),
-      "", "", "", "",
-      formatToPeso(data.TOTALAMOUNTPAID), "", "",formatToPeso(data.TOTALAMOUNTPAID), "",
-      "",
-    ],
-    [
-      "TOTAL",
-      formatToPeso(data.TOTALAMOUNTPAID),
-      "", "", "", "",
-      formatToPeso(data.TOTALAMOUNTPAID), "", "",formatToPeso(data.TOTALAMOUNTPAID), "",
-      "",
-    ],
-  ];
-
-  // Calculate precise X position to center the table
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const tableWidth = 260; // Adjust based on column widths
-  const startX = (pageWidth - tableWidth) / 2; // Perfect Centering
-
-  // Generate Table (Centered)
-  autoTable(doc, {
-    startY: 50,
-    startX: startX, // Use the calculated position
-    head: headers,
-    body: body,
-    theme: "grid",
-    styles: {
-      font: "helvetica",
-      fontSize: 9,
-      cellPadding: 3,
-      halign: "center",
-      valign: "middle",
-      lineColor: [0, 0, 0],
-      lineWidth: 0.3,
-    },
-    headStyles: {
-      fillColor: [255, 255, 255],
-      textColor: [0, 0, 0],
-      fontStyle: "bold",
-      lineWidth: 0.3,
-    },
-    columnStyles: {
-      0: { halign: "left", cellWidth: "auto" },
-    },
-    didDrawPage: (data) => {
-      doc.setFontSize(8);
-      doc.text(
-        `Generated on: ${new Date().toLocaleDateString()}`,
-        10,
-        doc.internal.pageSize.height - 10
-      );
-    },
-  });
-
-  // Save PDF
-  doc.save(fileName);
+const handlePrint = () => {
+  const originalTitle = document.title;
+  document.title = `SOC_cEDULAReport_${month.label}_${year.label}`;
+  window.print();
+  document.title = originalTitle; // Restore original title
 };
 
 
@@ -263,283 +231,353 @@ const handleDownloadExcel = async (month, year) => {
       };
   return (
     <>
-   <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        mt: 2,
-        mb: 4,
-        p: 3,
-        bgcolor: 'background.paper',
-        borderRadius: 2,
-        boxShadow: 1
-      }}>
-    <Button
-      variant="contained"
-      startIcon={<ArrowBackIcon />}
-      onClick={onBack}
-      sx={{ 
-        borderRadius: '8px',
-        textTransform: 'none',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        '&:hover': { boxShadow: '0 4px 8px rgba(0,0,0,0.15)' }
-      }}
-    >
-      Back
-    </Button>
-    
-    <Box display="flex" gap={2}>
-      <Autocomplete
-        disablePortal
-        id="month-selector"
-        options={months}
-        sx={{ 
-          width: 180,
-          '& .MuiInputBase-root': { borderRadius: '8px' }
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mt: 2,
+          mb: 4,
+          p: 3,
+          bgcolor: "background.paper",
+          borderRadius: 2,
+          boxShadow: 1,
         }}
-        onChange={handleMonthChange}
-        value={month}
-        renderInput={(params) => 
-          <TextField {...params} label="Select Month" variant="outlined" />
-        }
-      />
-      <Autocomplete
-        disablePortal
-        id="year-selector"
-        options={years}
-        sx={{ 
-          width: 180,
-          '& .MuiInputBase-root': { borderRadius: '8px' }
-        }}
-        onChange={handleYearChange}
-        value={year}
-        renderInput={(params) => 
-          <TextField {...params} label="Select Year" variant="outlined" />
-        }
-      />
-    </Box>
-  </Box>
-  <Box>
-    <Grid container justifyContent="center" alignItems="center" spacing={0} direction="column" mb={2}>
-      <Grid item>
-        <Typography variant="h6" fontWeight="bold" align="center">
-          SUMMARY OF COLLECTIONS
-          </Typography>
+      >
+        <Button
+          variant="contained"
+          startIcon={<ArrowBackIcon />}
+          onClick={onBack}
+          sx={{
+            borderRadius: "8px",
+            textTransform: "none",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            "&:hover": { boxShadow: "0 4px 8px rgba(0,0,0,0.15)" },
+          }}
+        >
+          Back
+        </Button>
+
+        <Box display="flex" gap={2}>
+          <Autocomplete
+            disablePortal
+            id="month-selector"
+            options={months}
+            sx={{
+              width: 180,
+              "& .MuiInputBase-root": { borderRadius: "8px" },
+            }}
+            onChange={handleMonthChange}
+            value={month}
+            renderInput={(params) => (
+              <TextField {...params} label="Select Month" variant="outlined" />
+            )}
+          />
+          <Autocomplete
+            disablePortal
+            id="year-selector"
+            options={years}
+            sx={{
+              width: 180,
+              "& .MuiInputBase-root": { borderRadius: "8px" },
+            }}
+            onChange={handleYearChange}
+            value={year}
+            renderInput={(params) => (
+              <TextField {...params} label="Select Year" variant="outlined" />
+            )}
+          />
+        </Box>
+      </Box>
+      <Box>
+        <Grid
+          container
+          justifyContent="center"
+          alignItems="center"
+          spacing={0}
+          direction="column"
+          mb={2}
+        >
+          <Grid item>
+            <Typography variant="h6" fontWeight="bold" align="center">
+              SUMMARY OF COLLECTIONS
+            </Typography>
           </Grid>
           <Grid item>
             <Typography variant="subtitle1" fontWeight="bold" align="center">
               ZAMBOANGUITA, NEGROS ORIENTAL
-              </Typography>
-              </Grid>
-              <Grid item>
-                <Typography variant="body1" fontStyle="bold" align="center">
-                  LGU</Typography></Grid>
-                  <Grid item>
-                    <Typography variant="body2" fontStyle="bold" align="center">
-                  Month of {month.label} {year.label}
-                  </Typography>
-                  </Grid>
-                  </Grid>
-              <TableContainer component={Paper}>
-              <Table sx={{ border: '1px solid black' }}>
-              <TableHead>
-                    {/* First Row */}
-                    <TableRow>
-                      <TableCell
-                        rowSpan={2}
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        SOURCES OF COLLECTIONS
-                      </TableCell>
-                      <TableCell
-                        rowSpan={2}
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        TOTAL COLLECTIONS
-                      </TableCell>
-                      <TableCell
-                        rowSpan={2}
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        NATIONAL
-                      </TableCell>
-                      <TableCell
-                        colSpan={3}
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        PROVINCIAL
-                      </TableCell>
-                      <TableCell
-                        colSpan={4}
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        MUNICIPAL
-                      </TableCell>
-                      <TableCell
-                        rowSpan={2}
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        BARANGAY SHARE
-                      </TableCell>
-                      <TableCell
-                        rowSpan={2}
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        FISHERIES
-                      </TableCell>
-                    </TableRow>
-                    {/* Second Row */}
-                    <TableRow>
-                      <TableCell
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        GENERAL FUND
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        SPECIAL EDUC. FUND
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        TOTAL
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        GENERAL FUND
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        SPECIAL EDUC. FUND
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        TRUST FUND
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ border: '1px solid black', fontWeight: 'bold' }}
-                      >
-                        TOTAL
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                 {/* Community Tax Certification */}
-                 <TableRow>
-                  <React.Fragment>
-                    <TableCell align="left" sx={{ border: '1px solid black' }}>Com Tax Cert.</TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center">{formatToPeso(data.TOTALAMOUNTPAID)}</TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center">{formatToPeso(data.TOTALAMOUNTPAID)}</TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center">{formatToPeso(data.TOTALAMOUNTPAID)}</TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                    </React.Fragment>
-                    </TableRow>
-                    {/* OVERALL TOTAL */}
-                    <TableRow>
-                      <React.Fragment>
-                        <TableCell align="left" sx={{ border: '1px solid black' }}>TOTAL</TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatToPeso(data.TOTALAMOUNTPAID)}</TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatToPeso(data.TOTALAMOUNTPAID)}</TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center">{formatToPeso(data.TOTALAMOUNTPAID)}</TableCell>
-                        <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                         <TableCell sx={{ border: '1px solid black' }} align="center"></TableCell>
-                         </React.Fragment>
-                         </TableRow>
-                      </TableBody>
-              </Table>
-              </TableContainer>
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Typography variant="body1" fontStyle="bold" align="center">
+              LGU
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Typography variant="body2" fontStyle="bold" align="center">
+              Month of {month.label} {year.label}
+            </Typography>
+          </Grid>
+        </Grid>
+        <TableContainer component={Paper}>
+          <Table sx={{ border: "1px solid black" }}>
+            <TableHead>
+              {/* First Row */}
+              <TableRow>
+                <TableCell
+                  rowSpan={2}
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  SOURCES OF COLLECTIONS
+                </TableCell>
+                <TableCell
+                  rowSpan={2}
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  TOTAL COLLECTIONS
+                </TableCell>
+                <TableCell
+                  rowSpan={2}
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  NATIONAL
+                </TableCell>
+                <TableCell
+                  colSpan={3}
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  PROVINCIAL
+                </TableCell>
+                <TableCell
+                  colSpan={4}
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  MUNICIPAL
+                </TableCell>
+                <TableCell
+                  rowSpan={2}
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  BARANGAY SHARE
+                </TableCell>
+                <TableCell
+                  rowSpan={2}
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  FISHERIES
+                </TableCell>
+              </TableRow>
+              {/* Second Row */}
+              <TableRow>
+                <TableCell
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  GENERAL FUND
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  SPECIAL EDUC. FUND
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  TOTAL
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  GENERAL FUND
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  SPECIAL EDUC. FUND
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  TRUST FUND
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ border: "1px solid black", fontWeight: "bold" }}
+                >
+                  TOTAL
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {/* Community Tax Certification */}
+              <TableRow>
+                <React.Fragment>
+                  <TableCell align="left" sx={{ border: "1px solid black" }}>
+                    Com Tax Cert.
+                  </TableCell>
+                  <TableCell sx={{ border: "1px solid black" }} align="center">
+                    {formatToPeso(data.TOTALAMOUNTPAID)}
+                  </TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell sx={{ border: "1px solid black" }} align="center">
+                    {formatToPeso(data.TOTALAMOUNTPAID)}
+                  </TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell sx={{ border: "1px solid black" }} align="center">
+                    {formatToPeso(data.TOTALAMOUNTPAID)}
+                  </TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                </React.Fragment>
+              </TableRow>
+              {/* OVERALL TOTAL */}
+              <TableRow>
+                <React.Fragment>
+                  <TableCell align="left" sx={{ border: "1px solid black" }}>
+                    TOTAL
+                  </TableCell>
+                  <TableCell sx={{ border: "1px solid black" }} align="center">
+                    {formatToPeso(data.TOTALAMOUNTPAID)}
+                  </TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell sx={{ border: "1px solid black" }} align="center">
+                    {formatToPeso(data.TOTALAMOUNTPAID)}
+                  </TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell sx={{ border: "1px solid black" }} align="center">
+                    {formatToPeso(data.TOTALAMOUNTPAID)}
+                  </TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                  <TableCell
+                    sx={{ border: "1px solid black" }}
+                    align="center"
+                  ></TableCell>
+                </React.Fragment>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mt: 2,
+          mb: 4,
+          p: 3,
+          bgcolor: "background.paper",
+          borderRadius: 2,
+          boxShadow: 1,
+        }}
+      >
+        {/* Print PDF Button */}
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handlePrint}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            textTransform: "none",
+            borderRadius: "12px",
+            padding: "10px 20px",
+            fontWeight: 600,
+            "&:hover": { backgroundColor: "secondary.main" },
+          }}
+          startIcon={<PrintIcon />}
+        >
+          Print PDF
+        </Button>
 
-
-          
-              
-              </Box>
-              <Box
-  sx={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    mt: 2,
-    mb: 4,
-    p: 3,
-    bgcolor: "background.paper",
-    borderRadius: 2,
-    boxShadow: 1,
-  }}
->
-  {/* Print PDF Button */}
-  <Button
-    variant="contained"
-    color="primary"
-    onClick={handlePrintPDF}
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      gap: 1,
-      textTransform: "none",
-      borderRadius: "12px",
-      padding: "10px 20px",
-      fontWeight: 600,
-      "&:hover": { backgroundColor: "secondary.main" },
-    }}
-    startIcon={<PrintIcon />}
-  >
-    Print PDF
-  </Button>
-
-  {/* Download Excel Button */}
-  <Button
-    variant="outlined"
-    color="success"
-    onClick={() => handleDownloadExcel(month, year)}
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      gap: 1,
-      textTransform: "none",
-      borderRadius: "12px",
-      padding: "10px 20px",
-      fontWeight: 600,
-      "&:hover": { backgroundColor: "success.light" },
-    }}
-    startIcon={<FileDownloadIcon />}
-  >
-    Download Excel
-  </Button>
-</Box>
-      
+        {/* Download Excel Button */}
+        <Button
+          variant="outlined"
+          color="success"
+          onClick={() => handleDownloadExcel(month, year)}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            textTransform: "none",
+            borderRadius: "12px",
+            padding: "10px 20px",
+            fontWeight: 600,
+            "&:hover": { backgroundColor: "success.light" },
+          }}
+          startIcon={<FileDownloadIcon />}
+        >
+          Download Excel
+        </Button>
+      </Box>
     </>
-  )
+  );
 }
 
 ReportTable.propTypes = {

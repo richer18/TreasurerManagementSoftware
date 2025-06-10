@@ -14,21 +14,21 @@ app.use(express.json()); // Support JSON payloads
 
 // Create connection to MySQL database
 
-// const dbConfig = {
-//   host: '192.168.101.108',
-//   user: 'treasurer_root2',
-//   password: '$p4ssworD!',
-//   database: 'treasurer_management_app',
-//   port: 3307
-// };
-
 const dbConfig = {
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "treasurer_management_app",
-  port: 3307,
+  host: '192.168.101.108',
+  user: 'treasurer_root2',
+  password: '$p4ssworD!',
+  database: 'treasurer_management_app',
+  port: 3307
 };
+
+// const dbConfig = {
+//   host: "localhost",
+//   user: "root",
+//   password: "",
+//   database: "treasurer_management_app",
+//   port: 3307,
+// };
 
 const dbConfigs = {
   host: "localhost",

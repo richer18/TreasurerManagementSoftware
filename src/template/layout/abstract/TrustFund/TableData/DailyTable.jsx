@@ -24,7 +24,7 @@ import { styled } from '@mui/system';
 import axios from 'axios';
 import { format, parseISO } from 'date-fns';
 import dayjs from 'dayjs';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CommentsDialog from '../../RealPropertyTax/TableData/CommentsDialog';
 import DailyTablev2 from './components/Table/DailyTable';
 
@@ -90,7 +90,7 @@ const formatDate = (dateInput) => {
   };
 
 
-const BASE_URL = "http://localhost:3001"; // Define base URL
+const BASE_URL = "http://192.168.101.108:3001"; // Define base URL
 
 function DailyTable({ onDataFiltered,onBack }) {
   

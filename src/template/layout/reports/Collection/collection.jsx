@@ -15,8 +15,9 @@ import {
 } from "@mui/material";
 import axios from "axios";
 
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import PrintIcon from "@mui/icons-material/Print";
 import React, { useEffect, useMemo, useState } from "react";
-// import MDTypography from '../../../../../components/MDTypography';
 
 const months = [
   { label: "January", value: "1" },
@@ -46,12 +47,12 @@ const years = [
 
 const BASE_URL = "http://192.168.101.108:3001";
 
+
 // Helper function to format currency
 const formatCurrency = (value) => {
-  return `₱ ${Number(value).toLocaleString("en-PH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return value > 0
+    ? `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+    : '₱0.00'; // Changed to display '₱0.00' instead of empty string
 };
 
 function Collection() {
@@ -741,6 +742,80 @@ function Collection() {
     (sharingData.sefBuildingSharingData.Penalties["50% Prov’l Share"] || 0) +
     (sharingData.sefBuildingSharingData.Penalties["50% Mun. Share"] || 0);
 
+
+    // Inject print-specific styles
+    React.useEffect(() => {
+      const style = document.createElement("style");
+      style.innerHTML = `
+        @media print {
+          @page {
+            size: 8.5in 13in portrait; /* Legal size, adjust to '8.5in 11in' for letter */
+            margin: 10mm; /* Increased margin for better readability */
+          }
+          body * {
+            visibility: hidden; /* Hide everything except the printable area */
+          }
+          #printableArea, #printableArea * {
+            visibility: visible;
+          }
+          #printableArea {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%; /* Use full width of the page */
+          }
+          table {
+            width: 100%; /* Ensure table spans the full width */
+            border-collapse: collapse;
+            font-family: Arial, sans-serif; /* Use a standard font */
+            font-size: 10px; /* Adjust font size for readability */
+          }
+          th, td {
+            border: 1px solid black;
+            padding: 6px; /* Slightly increase padding for better spacing */
+            text-align: center;
+          }
+          th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            font-size: 11px; /* Slightly larger for headers */
+          }
+          h6, .subtitle {
+            font-size: 12px;
+            text-align: center;
+            font-weight: bold;
+            margin: 6px 0;
+            font-family: Arial, sans-serif;
+          }
+          tr {
+            page-break-inside: avoid; /* Prevent rows from splitting across pages */
+          }
+          /* Adjust column widths */
+          th:nth-child(1), td:nth-child(1) { width: 18%; }
+          th:nth-child(2), td:nth-child(2) { width: 14%; }
+          th:nth-child(3), td:nth-child(3) { width: 10%; }
+          th:nth-child(4), td:nth-child(4) { width: 9%; }
+          th:nth-child(5), td:nth-child(5) { width: 9%; }
+          th:nth-child(6), td:nth-child(6) { width: 9%; }
+          th:nth-child(7), td:nth-child(7) { width: 9%; }
+          th:nth-child(8), td:nth-child(8) { width: 9%; }
+          th:nth-child(9), td:nth-child(9) { width: 9%; }
+          th:nth-child(10), td:nth-child(10) { width: 9%; }
+          th:nth-child(11), td:nth-child(11) { width: 6%; }
+          th:nth-child(12), td:nth-child(12) { width: 6%; }
+        }
+      `;
+      document.head.appendChild(style);
+      return () => document.head.removeChild(style);
+    }, []);
+    
+    const handlePrint = () => {
+      const originalTitle = document.title;
+      document.title = `SOC_GeneralFundReport_${month.label}_${year.label}`;
+      window.print();
+      document.title = originalTitle; // Restore original title
+    };
+
   return (
     <>
       <Box
@@ -788,6 +863,7 @@ function Collection() {
         </Box>
       </Box>
       <div id="printableArea">
+        <Box>
         <Box>
           <Grid
             container
@@ -926,7 +1002,7 @@ function Collection() {
                     Manufacturing
                   </TableCell>
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {(data.manufacturing || 0).toFixed(2)}
+                    {formatCurrency(data.manufacturing || 0)}
                   </TableCell>{" "}
                   {/* TOTAL COLLECTIONS */}
                   <TableCell
@@ -950,7 +1026,7 @@ function Collection() {
                   ></TableCell>{" "}
                   {/* PROVINCIAL TOTAL */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {(data.manufacturing || 0).toFixed(2)}
+                    {formatCurrency(data.manufacturing || 0)}
                   </TableCell>{" "}
                   {/* MUNICIPAL GENERAL FUND */}
                   <TableCell
@@ -4533,26 +4609,64 @@ function Collection() {
             </Table>
           </TableContainer>
         </Box>
+        </Box>
+        </div>
         {/* Printable Area Ends Here */}
+
+
         {/* Print Button */}
-        <Box mt={2} display="flex" justifyContent="space-between">
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mt: 2,
+            mb: 4,
+            p: 3,
+            bgcolor: "background.paper",
+            borderRadius: 2,
+            boxShadow: 1,
+          }}
+        >
           <Button
             variant="contained"
             color="primary"
-            // onClick={handlePrint}
-            className="print-button" // This class is used to hide the button during printing
+            onClick={handlePrint}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              textTransform: "none",
+              borderRadius: "12px",
+              padding: "10px 20px",
+              fontWeight: 600,
+              "&:hover": { backgroundColor: "secondary.main" },
+            }}
+            startIcon={<PrintIcon />}
           >
             PRINT
           </Button>
+
           <Button
-            variant="contained"
-            color="secondary"
+            variant="outlined"
+            color="success"
             // onClick={handleDownloadExcel}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              textTransform: "none",
+              borderRadius: "12px",
+              padding: "10px 20px",
+              fontWeight: 600,
+              "&:hover": { backgroundColor: "success.light" },
+            }}
+            startIcon={<FileDownloadIcon />}
           >
             Download to Excel
           </Button>
         </Box>
-      </div>
+      
     </>
   );
 }
