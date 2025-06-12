@@ -18,6 +18,7 @@ import axios from "axios";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PrintIcon from "@mui/icons-material/Print";
 import React, { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 
 const months = [
   { label: "January", value: "1" },
@@ -45,14 +46,12 @@ const years = [
   { label: "2030", value: "2030" },
 ];
 
-const BASE_URL = "http://192.168.101.108:3001";
+const BASE_URL = "http://localhost:3001";
 
 
 // Helper function to format currency
 const formatCurrency = (value) => {
-  return value > 0
-    ? `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-    : '₱0.00'; // Changed to display '₱0.00' instead of empty string
+  return typeof value === 'number' ? value : 0;
 };
 
 function Collection() {
@@ -226,13 +225,7 @@ function Collection() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log(
-          "Fetching data for month:",
-          month.value,
-          "and year:",
-          year.value
-        );
-
+       
         const response = await axios.get(
           `${BASE_URL}/api/trustFundDataReport`,
           {
@@ -275,7 +268,7 @@ function Collection() {
             }
           );
 
-          console.log("Filtered Data:", filteredData);
+         
           setTFData(filteredData);
         } else {
           console.warn("No data available for selected month and year");
@@ -310,7 +303,7 @@ function Collection() {
           }
         );
 
-        console.log("API cedula summary data:", response.data); // Debugging log
+      
 
         if (Array.isArray(response.data) && response.data.length > 0) {
           const totalAmountPaid = Number(response.data[0].Totalamountpaid) || 0;
@@ -331,12 +324,7 @@ function Collection() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log(
-          "Fetching data for month:",
-          month.value,
-          "and year:",
-          year.value
-        ); // Debug log
+       
 
         const response = await axios.get(
           `${BASE_URL}/api/generalFundDataReport`,
@@ -436,7 +424,6 @@ function Collection() {
               cuttingTree: 0,
             }
           );
-          console.log("API Response:", response.data);
           setData(filteredData);
         } else {
           console.error("No data available for selected month and year");
@@ -526,6 +513,8 @@ function Collection() {
     setYear(value || { label: "2025", value: "2025" });
   };
 
+  const totalOverAllAmountNational = (tfdata.building_national_5 || 0) + (tfdata.livestock_national_20 || 0);
+
   // You can place this calculation above your return statement
   const totalOverAllAmount =
     (data.manufacturing || 0) +
@@ -564,7 +553,7 @@ function Collection() {
     (data.medDentLabFees || 0) +
     (data.garbageFees || 0) +
     (data.cuttingTree || 0) +
-    (data.building_local_80 || 0) +
+    (tfdata.building_local_80 || 0) +
     (tfdata.building_trust_15 || 0) +
     (tfdata.building_national_5 || 0) +
     (tfdata.electricalfee || 0) +
@@ -683,7 +672,6 @@ function Collection() {
     (data.occupationTax || 0) +
     (data.certOfOwnership || 0) +
     (data.certOfTransfer || 0) +
-    (data.cockpitProvShare || 0) +
     (data.cockpitLocalShare || 0) +
     (data.dockingMooringFee || 0) +
     (data.sultadas || 0) +
@@ -706,7 +694,7 @@ function Collection() {
     (data.medDentLabFees || 0) +
     (data.garbageFees || 0) +
     (data.cuttingTree || 0) +
-    (data.building_local_80 || 0) +
+    (tfdata.building_local_80 || 0) +
     (tfdata.building_trust_15 || 0) +
     (tfdata.electricalfee || 0) +
     (tfdata.zoningfee || 0) +
@@ -714,32 +702,20 @@ function Collection() {
     (tfdata.diving_local_40 || 0) +
     (cdata.TOTALAMOUNTPAID || 0) +
     // Land Sharing Data
-    (sharingData.LandSharingData.Current["35% Prov’l Share"] || 0) +
     (sharingData.LandSharingData.Current["40% Mun. Share"] || 0) +
-    (sharingData.LandSharingData.Prior["35% Prov’l Share"] || 0) +
     (sharingData.LandSharingData.Prior["40% Mun. Share"] || 0) +
-    (sharingData.LandSharingData.Penalties["35% Prov’l Share"] || 0) +
     (sharingData.LandSharingData.Penalties["40% Mun. Share"] || 0) +
     // SEF Land Sharing
-    (sharingData.sefLandSharingData.Current["50% Prov’l Share"] || 0) +
     (sharingData.sefLandSharingData.Current["50% Mun. Share"] || 0) +
-    (sharingData.sefLandSharingData.Prior["50% Prov’l Share"] || 0) +
     (sharingData.sefLandSharingData.Prior["50% Mun. Share"] || 0) +
-    (sharingData.sefLandSharingData.Penalties["50% Prov’l Share"] || 0) +
     (sharingData.sefLandSharingData.Penalties["50% Mun. Share"] || 0) +
     // Building Sharing
-    (sharingData.buildingSharingData.Current["35% Prov’l Share"] || 0) +
     (sharingData.buildingSharingData.Current["40% Mun. Share"] || 0) +
-    (sharingData.buildingSharingData.Prior["35% Prov’l Share"] || 0) +
     (sharingData.buildingSharingData.Prior["40% Mun. Share"] || 0) +
-    (sharingData.buildingSharingData.Penalties["35% Prov’l Share"] || 0) +
     (sharingData.buildingSharingData.Penalties["40% Mun. Share"] || 0) +
     // SEF Building Sharing
-    (sharingData.sefBuildingSharingData.Current["50% Prov’l Share"] || 0) +
     (sharingData.sefBuildingSharingData.Current["50% Mun. Share"] || 0) +
-    (sharingData.sefBuildingSharingData.Prior["50% Prov’l Share"] || 0) +
     (sharingData.sefBuildingSharingData.Prior["50% Mun. Share"] || 0) +
-    (sharingData.sefBuildingSharingData.Penalties["50% Prov’l Share"] || 0) +
     (sharingData.sefBuildingSharingData.Penalties["50% Mun. Share"] || 0);
 
 
@@ -815,6 +791,377 @@ function Collection() {
       window.print();
       document.title = originalTitle; // Restore original title
     };
+
+    const generateHeaders = () => {
+  return [
+['SUMMARY OF COLLECTIONS', '', '', '', '', '', '', '', '', '', ''],
+['ZAMBOANGUITA, NEGROS ORIENTAL', '', '', '', '', '', '', '', '', '', ''],
+['LGU', '', '', '', '', '', '', '', '', '', ''],
+['Month of January 2025', '', '', '', '', '', '', '', '', '', ''],
+[],
+
+    [
+      'SOURCES OF COLLECTIONS',
+      'TOTAL COLLECTIONS',
+      'NATIONAL',
+      'PROVINCIAL', '', '',
+      'MUNICIPAL', '', '', '',
+      'BARANGAY SHARE',
+      'FISHERIES'
+    ],
+    [
+      '',
+      '',
+      '',
+      'GENERAL FUND',
+      'SPECIAL EDUC. FUND',
+      'TOTAL',
+      'GENERAL FUND',
+      'SPECIAL EDUC. FUND',
+      'TRUST FUND',
+      'TOTAL',
+      '',
+      ''
+    ]
+  ];
+};
+
+const readableCategories = {
+  LandSharingData: 'Real Property Tax - Basic/Land',
+  sefLandSharingData: 'Real Property Tax - SEF/Land',
+  buildingSharingData: 'Real Property Tax - Basic/Bldg.',
+  sefBuildingSharingData: 'Real Property Tax - SEF/Bldg.'
+};
+
+const handleDownloadExcel = () => {
+  const headers = generateHeaders();
+  const dataToExport = [];
+  
+  const totals = {
+    totalCollections: 0,
+    national: 0,
+    prov35: 0,
+    prov50: 0,
+    mun40: 0,
+    mun50: 0,
+    trust: 0,
+    brgy: 0,
+    fisheries: 0,
+  };
+
+  const addDataRow = (label, value, provincialValue = null) => {
+    const municipalValue = provincialValue ? value - provincialValue : value;
+
+    dataToExport.push([
+      label,
+      formatCurrency(value),
+      '', // National
+      provincialValue !== null ? formatCurrency(provincialValue) : '', // Prov Gen Fund
+      '', '', // Prov SEF & Prov Total
+      provincialValue !== null ? formatCurrency(municipalValue) : formatCurrency(value), // Mun Gen Fund
+      '', '', // Mun SEF & Trust Fund
+      provincialValue !== null ? formatCurrency(municipalValue) : formatCurrency(value), // Mun Total
+      '', // Brgy
+      ''  // Fisheries
+    ]);
+  };
+
+  // Add regular data rows
+  [
+    ['Manufacturing', data.manufacturing],
+    ['Distributor', data.distributor],
+    ['Retailing', data.retailing],
+    ['Banks & Other Financial Int.', data.financial],
+    ['Other Business Tax', data.otherBusinessTax],
+    ['Sand & Gravel', data.sandGravel],
+    ['Fines & Penalties', data.finesPenalties],
+    ['Mayor\'s Permit', data.mayorsPermit],
+    ['Weights & Measures', data.weighsMeasure],
+    ['Tricycle Permit Fee', data.tricycleOperators],
+    ['Occupation Tax', data.occupationTax],
+    ['Cert. of Ownership', data.certOfOwnership],
+    ['Cert. of Transfer', data.certOfTransfer],
+    ['Cockpit Share', (data.cockpitLocalShare || 0) + (data.cockpitProvShare || 0), data.cockpitProvShare],
+    ['Docking and Mooring Fee', data.dockingMooringFee],
+    ['Sultadas', data.sultadas],
+    ['Miscellaneous', data.miscellaneousFee],
+    ['Registration of Birth', data.regOfBirth],
+    ['Marriage Fees', data.marriageFees],
+    ['Burial Fees', data.burialFees],
+    ['Correction of Entry', data.correctionOfEntry],
+    ['Fishing Permit Fee', data.fishingPermitFee],
+    ['Sale of Agri. Prod.', data.saleOfAgriProd],
+    ['Sale of Acc. Forms', data.saleOfAcctForm],
+    ['Water Fees', data.waterFees],
+    ['Market Stall Fee', data.stallFees],
+    ['Cash Tickets', data.cashTickets],
+    ['Slaughterhouse Fee', data.slaughterHouseFee],
+    ['Rent of Equipment', data.rentalOfEquipment],
+    ['Doc Stamp Tax', data.docStamp],
+    ['Police Clearance', '0.00'],
+    ['Secretariat Fees', (data.secretaryfee || 0) + (data.policeReportClearance || 0)],
+    ['Med./Lab. Fees', data.medDentLabFees],
+    ['Garbage Fees', data.garbageFees],
+    ['Cutting Tree', data.cuttingTree],
+    ['Community Tax', cdata.TOTALAMOUNTPAID]
+  ].forEach(([label, value, prov]) => addDataRow(label, value, prov));
+
+  // Add fixed rows
+  const fixedRows = [
+    [
+      'Building Permit Fee',
+      formatCurrency(tfdata.building_local_80 + tfdata.building_trust_15 + tfdata.building_national_5),
+      formatCurrency(tfdata.building_national_5),
+      '', '', '',
+      formatCurrency(tfdata.building_local_80),
+      '', formatCurrency(tfdata.building_trust_15),
+      formatCurrency(tfdata.building_local_80 + tfdata.building_trust_15),
+      '', ''
+    ],
+    [
+      'Electrical Permit Fee',
+      formatCurrency(tfdata.electricalfee),
+      '', '', '', '',
+      formatCurrency(tfdata.electricalfee),
+      '', '', formatCurrency(tfdata.electricalfee),
+      '', ''
+    ],
+    [
+      'Zoning Fee',
+      formatCurrency(tfdata.zoningfee),
+      '', '', '', '',
+      formatCurrency(tfdata.zoningfee),
+      '', '', formatCurrency(tfdata.zoningfee),
+      '', ''
+    ],
+    [
+      'Livestock',
+      formatCurrency(tfdata.livestock_local_80 + tfdata.livestock_national_20),
+      formatCurrency(tfdata.livestock_national_20),
+      '', '', '',
+      formatCurrency(tfdata.livestock_local_80),
+      '', '', formatCurrency(tfdata.livestock_local_80),
+      '', ''
+    ],
+    [
+      'Diving Fee',
+      formatCurrency(tfdata.diving_local_40 + tfdata.diving_brgy_30 + tfdata.diving_fishers_30),
+      '', '', '', '',
+      formatCurrency(tfdata.diving_local_40),
+      '', '', formatCurrency(tfdata.diving_local_40),
+      formatCurrency(tfdata.diving_brgy_30),
+      formatCurrency(tfdata.diving_fishers_30)
+    ]
+  ];
+
+  fixedRows.forEach(row => dataToExport.push(row));
+
+  // sharingData rows
+  Object.keys(sharingData).forEach((key) => {
+    const categoryData = sharingData[key];
+    const hasData = Object.values(categoryData).some(row =>
+      Object.values(row).some(value => value !== 0 && value !== '' && value !== null)
+    );
+    if (!hasData) return;
+
+    const categoryLabel = readableCategories[key] || key;
+    dataToExport.push([categoryLabel]);
+
+    Object.keys(categoryData).forEach(subKey => {
+      if (subKey === 'TOTAL') return;
+      const rowData = categoryData[subKey];
+      let totalCollections = 0;
+
+      if (key === 'LandSharingData' || key === 'buildingSharingData') {
+        totalCollections =
+          (rowData['35% Prov’l Share'] || 0) +
+          (rowData['40% Mun. Share'] || 0) +
+          (rowData['25% Brgy. Share'] || 0);
+      } else if (key === 'sefLandSharingData' || key === 'sefBuildingSharingData') {
+        totalCollections =
+          (rowData['50% Prov’l Share'] || 0) +
+          (rowData['50% Mun. Share'] || 0);
+      }
+
+      totals.totalCollections += totalCollections;
+      totals.national += (rowData['National'] || 0);
+      totals.prov35 += (rowData['35% Prov’l Share'] || 0);
+      totals.prov50 += (rowData['50% Prov’l Share'] || 0);
+      totals.mun40 += (rowData['40% Mun. Share'] || 0);
+      totals.mun50 += (rowData['50% Mun. Share'] || 0);
+      totals.trust += (rowData['Municipal Trust Fund'] || 0);
+      totals.brgy += (rowData['25% Brgy. Share'] || 0);
+      totals.fisheries += (rowData['Fisheries'] || 0);
+
+      dataToExport.push([
+        subKey === 'Current' ? 'Current Year' : subKey === 'Prior' ? 'Previous Years' : 'Penalties',
+        (totalCollections),
+        (rowData['National'] || 0),
+        (rowData['35% Prov’l Share'] || 0),
+        (rowData['50% Prov’l Share'] || 0),
+        ((rowData['35% Prov’l Share'] || 0) + (rowData['50% Prov’l Share'] || 0)),
+        (rowData['40% Mun. Share'] || 0),
+        (rowData['50% Mun. Share'] || 0),
+        (rowData['Municipal Trust Fund'] || 0),
+        (
+          (rowData['40% Mun. Share'] || 0) +
+          (rowData['50% Mun. Share'] || 0) +
+          (rowData['Municipal Trust Fund'] || 0)
+        ),
+        (rowData['25% Brgy. Share'] || 0),
+        (rowData['Fisheries'] || 0)
+      ]);
+    });
+  });
+
+
+  dataToExport.push([
+    'TOTAL',
+    formatCurrency(totalOverAllAmount), //Total Collection
+    formatCurrency(totalOverAllAmountNational),  //National
+    formatCurrency(totalOverAllProvGFAmount),  //Prov General Fund
+    formatCurrency(
+                      (sharingData.sefLandSharingData.Current[
+                        "50% Prov’l Share"
+                      ] || 0) +
+                        (sharingData.sefLandSharingData.Prior[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefLandSharingData.Penalties[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Current[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Prior[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Penalties[
+                          "50% Prov’l Share"
+                        ] || 0)
+                    ),  //Prov SEF
+    formatCurrency((sharingData.LandSharingData.Current[
+                        "35% Prov’l Share"
+                      ] || 0) +
+                        (sharingData.LandSharingData.Prior[
+                          "35% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.LandSharingData.Penalties[
+                          "35% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefLandSharingData.Current[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefLandSharingData.Prior[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefLandSharingData.Penalties[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.buildingSharingData.Current[
+                          "35% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.buildingSharingData.Prior[
+                          "35% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.buildingSharingData.Penalties[
+                          "35% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Current[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Prior[
+                          "50% Prov’l Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Penalties[
+                          "50% Prov’l Share"
+                        ] || 0)), //Prov TOTAL
+    formatCurrency((totalOverAllMunGFAmount)), //Mun General Fund 
+    formatCurrency(
+                      (sharingData.sefLandSharingData.Current[
+                        "50% Mun. Share"
+                      ] || 0) +
+                        (sharingData.sefLandSharingData.Prior[
+                          "50% Mun. Share"
+                        ] || 0) +
+                        (sharingData.sefLandSharingData.Penalties[
+                          "50% Mun. Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Current[
+                          "50% Mun. Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Prior[
+                          "50% Mun. Share"
+                        ] || 0) +
+                        (sharingData.sefBuildingSharingData.Penalties[
+                          "50% Mun. Share"
+                        ] || 0)
+                    ),  //Mun SEF
+    formatCurrency(tfdata.building_trust_15), //Mun Trust
+    formatCurrency(totalOverMunAllAmount), //Mun Total
+    formatCurrency(
+                      (tfdata.diving_brgy_30 || 0) +
+                        (sharingData.LandSharingData.Current[
+                          "25% Brgy. Share"
+                        ] || 0) +
+                        (sharingData.LandSharingData.Prior["25% Brgy. Share"] ||
+                          0) +
+                        (sharingData.LandSharingData.Penalties[
+                          "25% Brgy. Share"
+                        ] || 0) +
+                        (sharingData.buildingSharingData.Current[
+                          "25% Brgy. Share"
+                        ] || 0) +
+                        (sharingData.buildingSharingData.Prior[
+                          "25% Brgy. Share"
+                        ] || 0) +
+                        (sharingData.buildingSharingData.Penalties[
+                          "25% Brgy. Share"
+                        ] || 0)
+                    ), //Barangay
+    formatCurrency(tfdata.diving_fishers_30)  //Fisheries
+  ]);
+
+   
+
+
+  // Create worksheet
+const worksheet = XLSX.utils.aoa_to_sheet([...headers, ...dataToExport]);
+
+// Define merge utility function
+const mergeRange = (startCell, endCell) => {
+  const decode = XLSX.utils.decode_cell;
+  return { s: decode(startCell), e: decode(endCell) };
+};
+
+// Add top title merges (A1:L1, A2:L2, A3:L3, A4:L4)
+worksheet['!merges'] = [
+  mergeRange('A1', 'L1'),
+  mergeRange('A2', 'L2'),
+  mergeRange('A3', 'L3'),
+  mergeRange('A4', 'L4'),
+  // Merge headers (row 5, 0-based index = r: 4)
+  { s: { r: 4, c: 2 }, e: { r: 4, c: 2 } }, // NATIONAL
+  { s: { r: 4, c: 3 }, e: { r: 4, c: 5 } }, // PROVINCIAL
+  { s: { r: 4, c: 6 }, e: { r: 4, c: 9 } }, // MUNICIPAL
+  { s: { r: 4, c: 10 }, e: { r: 4, c: 10 } }, // BARANGAY SHARE
+  { s: { r: 4, c: 11 }, e: { r: 4, c: 11 } }, // FISHERIES
+];
+
+// Freeze top 2 rows
+worksheet['!freeze'] = { xSplit: 0, ySplit: 2 };
+
+// Set column widths
+worksheet['!cols'] = headers[0].map(() => ({ wpx: 160 }));
+
+// Create and save workbook
+const workbook = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+XLSX.writeFile(workbook, `SOCRPT_${month.label}_${year.label}.xlsx`);
+};
+
+
+
 
   return (
     <>
@@ -2733,7 +3080,7 @@ function Collection() {
                   ></TableCell>{" "}
                   {/* PROVINCIAL TOTAL */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {(data.docStamp || 0).toFixed(2)}
+                    {(data.docStamp || 0)}
                   </TableCell>{" "}
                   {/* MUNICIPAL GENERAL FUND */}
                   <TableCell
@@ -2747,7 +3094,7 @@ function Collection() {
                   ></TableCell>{" "}
                   {/* MUNICIPAL TRUST FUND */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {(data.docStamp || 0).toFixed(2)}
+                    {(data.docStamp || 0)}
                   </TableCell>{" "}
                   {/* MUNICIPAL TOTAL */}
                   <TableCell
@@ -2831,7 +3178,7 @@ function Collection() {
                     {(
                       (data.policeReportClearance || 0) +
                         (data.secretaryfee || 0) || 0
-                    ).toFixed(2)}
+                    )}
                   </TableCell>{" "}
                   {/* TOTAL COLLECTIONS */}
                   <TableCell
@@ -2858,7 +3205,7 @@ function Collection() {
                     {(
                       (data.policeReportClearance || 0) +
                         (data.secretaryfee || 0) || 0
-                    ).toFixed(2)}
+                    )}
                   </TableCell>{" "}
                   {/* MUNICIPAL GENERAL FUND */}
                   <TableCell
@@ -2875,7 +3222,7 @@ function Collection() {
                     {(
                       (data.policeReportClearance || 0) +
                         (data.secretaryfee || 0) || 0
-                    ).toFixed(2)}
+                    )}
                   </TableCell>{" "}
                   {/* MUNICIPAL TOTAL */}
                   <TableCell
@@ -2896,7 +3243,7 @@ function Collection() {
                     Med./Lab. Fees
                   </TableCell>
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {(data.medDentLabFees || 0).toFixed(2)}
+                    {(data.medDentLabFees || 0)}
                   </TableCell>{" "}
                   {/* TOTAL COLLECTIONS */}
                   <TableCell
@@ -2920,7 +3267,7 @@ function Collection() {
                   ></TableCell>{" "}
                   {/* PROVINCIAL TOTAL */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {(data.medDentLabFees || 0).toFixed(2)}
+                    {(data.medDentLabFees || 0)}
                   </TableCell>{" "}
                   {/* MUNICIPAL GENERAL FUND */}
                   <TableCell
@@ -3314,7 +3661,7 @@ function Collection() {
                   <TableCell sx={{ border: "1px solid black" }} align="center">
                     {(
                       (tfdata.livestock_national_20 || 0) +
-                      (data.livestock_local_80 || 0)
+                      (tfdata.livestock_local_80 || 0)
                     ).toFixed(2)}
                   </TableCell>
                   <TableCell sx={{ border: "1px solid black" }} align="center">
@@ -4467,19 +4814,19 @@ function Collection() {
                     TOTAL
                   </TableCell>
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(totalOverAllAmount.toFixed(2))}
+                    {(totalOverAllAmount.toFixed(2))}
                   </TableCell>
                   <TableCell
                     sx={{ border: "1px solid black" }}
                     align="center"
-                  ></TableCell>{" "}
+                  >{(totalOverAllAmountNational.toFixed(2))}</TableCell>{" "}
                   {/* TOTAL NATIONAL */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(totalOverAllProvGFAmount.toFixed(2))}
+                    {(totalOverAllProvGFAmount.toFixed(2))}
                   </TableCell>{" "}
                   {/* TOTAL PROVINCIAL GENERAL FUND */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(
+                    {(
                       (sharingData.sefLandSharingData.Current[
                         "50% Prov’l Share"
                       ] || 0) +
@@ -4498,11 +4845,11 @@ function Collection() {
                         (sharingData.sefBuildingSharingData.Penalties[
                           "50% Prov’l Share"
                         ] || 0)
-                    )}
+                    ).toFixed(2)}
                   </TableCell>{" "}
                   {/* TOTAL PROVINCIAL SPECIAL EDUC. FUND */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(
+                    {(
                       (sharingData.LandSharingData.Current[
                         "35% Prov’l Share"
                       ] || 0) +
@@ -4539,15 +4886,15 @@ function Collection() {
                         (sharingData.sefBuildingSharingData.Penalties[
                           "50% Prov’l Share"
                         ] || 0)
-                    )}
+                    ).toFixed(2)}
                   </TableCell>{" "}
                   {/* TOTAL PROVINCIAL TOTAL */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(totalOverAllMunGFAmount)}
+                    {(totalOverAllMunGFAmount)}
                   </TableCell>{" "}
                   {/* TOTAL MUNICIPAL GENERAL FUND */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(
+                    {(
                       (sharingData.sefLandSharingData.Current[
                         "50% Mun. Share"
                       ] || 0) +
@@ -4566,19 +4913,19 @@ function Collection() {
                         (sharingData.sefBuildingSharingData.Penalties[
                           "50% Mun. Share"
                         ] || 0)
-                    )}
+                    ).toFixed(2)}
                   </TableCell>{" "}
                   {/* TOTAL MUNICIPAL SPECIAL EDUC. FUND */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(tfdata.building_trust_15)}
+                    {(tfdata.building_trust_15.toFixed(2))}
                   </TableCell>{" "}
                   {/* TOTAL MUNICIPAL TRUST FUND */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(totalOverMunAllAmount)}
+                    {(totalOverMunAllAmount.toFixed(2))}
                   </TableCell>{" "}
                   {/* TOTAL MUNICIPAL TOTAL */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(
+                    {(
                       (tfdata.diving_brgy_30 || 0) +
                         (sharingData.LandSharingData.Current[
                           "25% Brgy. Share"
@@ -4597,11 +4944,11 @@ function Collection() {
                         (sharingData.buildingSharingData.Penalties[
                           "25% Brgy. Share"
                         ] || 0)
-                    )}
+                    ).toFixed(2)}
                   </TableCell>{" "}
                   {/* TOTAL BARANGAY SHARE */}
                   <TableCell sx={{ border: "1px solid black" }} align="center">
-                    {formatCurrency(tfdata.diving_fishers_30)}
+                    {(tfdata.diving_fishers_30.toFixed(2))}
                   </TableCell>{" "}
                   {/* TOTAL FISHERIES */}
                 </TableRow>
@@ -4650,7 +4997,7 @@ function Collection() {
           <Button
             variant="outlined"
             color="success"
-            // onClick={handleDownloadExcel}
+            onClick={handleDownloadExcel}
             sx={{
               display: "flex",
               alignItems: "center",
